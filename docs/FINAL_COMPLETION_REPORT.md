@@ -56,6 +56,20 @@ All phases and final security requirements have been implemented, audited, and v
 - Concurrency protection via Prisma transactions and row-level locking (`SELECT ... FOR UPDATE`).
 - Real database verification executed against live complaint records (e.g. `CC-2026-555B-84668`): Hash chain is pristine and intact.
 
+### 2.5 Global Language Switching & Bilingual Architecture (Eighth Schedule of Constitution of India)
+- **Centralized Language Provider**: Managed by `src/context/LanguageContext.jsx` with real-time DOM synchronization (`document.documentElement.lang`) and `localStorage` persistence (`citizenconnect_lang`).
+- **Comprehensive Bilingual Dictionary (`src/i18n/translations.js`)**: Hundreds of localized keys added across English, Hindi, and regional languages.
+- **Universal Application Coverage**:
+  - Top navigation, workbenches/screens menu, mobile drawers, emergency banners & toll-free hotlines.
+  - Citizen Grievance Dashboard, KPI summary metrics, append-only rosters, and action drawers.
+  - Time-bound complaint escalation tracker, SLA stage indicators, and simulation triggers.
+  - 10-step statutory evidence submission wizard and text-only written complaint routes.
+  - Department official triage inbox, inquiry actions, and inter-agency transfers.
+  - Oversight reviewer dashboard, unredacted whistleblower vaults, and audit ledgers.
+  - Open public records registry, Section 12 legal aid directory, RTI/Lokayukta remedies, and platform methodology.
+  - SHA-256 cryptographic chain verification modals and print-ready legal briefs.
+- **Data Integrity Protection**: Dynamic complaint IDs (`CC-2026-...`), SHA-256 block hashes, timestamps, and citizen narrative exhibits remain strictly preserved without erroneous translation.
+
 ---
 
 ## 3. Automated Test Results
@@ -201,6 +215,9 @@ To strictly comply with the rule to **never reset or drop the Neon database**, a
 | `server/__tests__/staff.test.js` | Added 6 department-scoping isolation unit tests (total: 36 tests). |
 | `server/__tests__/notifications.test.js` | Added 5 notification persistence and recipient isolation tests. |
 | `server/scripts/verifyE2E.js` | 15-point real-database E2E security verification suite. |
+| `src/context/LanguageContext.jsx` | Centralized language state with fallback-enabled `t()` and persistent DOM sync. |
+| `src/i18n/translations.js` | Comprehensive bilingual dictionary for all platform modules & safe fallback resolution. |
+| `src/features/` & `src/components/` | Connected 20+ pages, modules, banners, and modals to global language switching. |
 | `src/features/official/OfficialInboxPage.jsx` | Connected real `/api/departments` to jurisdictional transfer dropdown. |
 | `docs/FINAL_COMPLETION_REPORT.md` | Comprehensive final completion and security audit documentation. |
 
