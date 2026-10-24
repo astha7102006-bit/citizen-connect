@@ -1,23 +1,37 @@
 /**
  * CitizenConnect — Auth Routes (Phase 3)
  *
- * POST /api/auth/register  — Public; creates CITIZEN accounts only
- * POST /api/auth/login     — Public; returns session cookie on success
- * POST /api/auth/logout    — Authenticated; destroys session
- * GET  /api/auth/me        — Authenticated; returns current user
+ * POST /api/auth/register          — Public; creates CITIZEN accounts only
+ * POST /api/auth/login             — Public; returns session cookie on success
+ * POST /api/auth/logout            — Authenticated; destroys session
+ * POST /api/auth/revoke-sessions   — Authenticated; revokes all sessions across all devices
+ * POST /api/auth/forgot-password   — Public; initiates password reset
+ * POST /api/auth/reset-password    — Public; single-use atomic password reset
+ * POST /api/auth/send-verification — Authenticated; sends email verification token
+ * POST /api/auth/verify-email      — Public; single-use atomic email verification
+ * GET  /api/auth/me                — Authenticated; returns current user
  */
 
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 
-import { registerUser, loginUser } from '../services/authService.js';
+import {
+  registerUser,
+  loginUser,
+  revokeAllUserSessions,
+  requestPasswordReset,
+  resetPassword,
+  requestEmailVerification,
+  verifyEmailToken,
+  validatePasswordPolicy,
+} from '../services/authService.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { sendSuccess, sendError } from '../utils/response.js';
 
 const router = Router();
 
 // ── Rate limiter — 10 requests per 15 minutes per IP ──────────────────────────
-const authLimiter = rateLimit({
+export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10,
   standardHeaders: true,
@@ -37,11 +51,6 @@ const authLimiter = rateLimit({
 function validateEmail(email) {
   // RFC 5322-ish simple regex — sufficient for registration guard
   return typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-}
-
-function validatePassword(password) {
-  // Minimum 8 characters
-  return typeof password === 'string' && password.length >= 8;
 }
 
 function validateName(name) {
@@ -79,8 +88,10 @@ router.post('/register', authLimiter, async (req, res, next) => {
         code: 'VALIDATION_ERROR',
       });
     }
-    if (!validatePassword(password)) {
-      return sendError(res, 'Password must be at least 8 characters long.', {
+
+    const passwordValidation = validatePasswordPolicy(password);
+    if (!passwordValidation.valid) {
+      return sendError(res, passwordValidation.error, {
         status: 400,
         code: 'VALIDATION_ERROR',
       });
@@ -88,15 +99,22 @@ router.post('/register', authLimiter, async (req, res, next) => {
 
     const user = await registerUser({ name, email, password, phone });
 
-    // Automatically create a session on successful registration
-    req.session.userId = user.id;
-    req.session.role   = user.role;
+    // Regenerate session ID to prevent session fixation attacks
+    req.session.regenerate((err) => {
+      if (err) return next(err);
 
-    return sendSuccess(res, { user }, { status: 201 });
+      req.session.userId = user.id;
+      req.session.role   = user.role;
+      req.session.sessionVersion = user.sessionVersion;
+
+      return sendSuccess(res, { user }, { status: 201 });
+    });
   } catch (err) {
-    // Known domain errors
     if (err.code === 'EMAIL_TAKEN') {
       return sendError(res, err.message, { status: 409, code: 'EMAIL_TAKEN' });
+    }
+    if (err.code === 'VALIDATION_ERROR') {
+      return sendError(res, err.message, { status: 400, code: 'VALIDATION_ERROR' });
     }
     return next(err);
   }
@@ -114,6 +132,14 @@ router.post('/login', authLimiter, async (req, res, next) => {
       });
     }
 
+    // Reject passwords exceeding bcrypt's 72-byte limit immediately
+    if (typeof password !== 'string' || Buffer.byteLength(password, 'utf8') > 72) {
+      return sendError(res, 'Invalid email or password.', {
+        status: 401,
+        code: 'INVALID_CREDENTIALS',
+      });
+    }
+
     const user = await loginUser({ email, password });
 
     // Regenerate session ID on login to prevent fixation attacks
@@ -122,6 +148,7 @@ router.post('/login', authLimiter, async (req, res, next) => {
 
       req.session.userId = user.id;
       req.session.role   = user.role;
+      req.session.sessionVersion = user.sessionVersion;
 
       return sendSuccess(res, { user });
     });
@@ -145,6 +172,121 @@ router.post('/logout', requireAuth, (req, res, next) => {
     res.clearCookie('cc.sid');
     return sendSuccess(res, { message: 'You have been logged out successfully.' });
   });
+});
+
+// ── POST /api/auth/revoke-sessions ───────────────────────────────────────────
+router.post('/revoke-sessions', requireAuth, async (req, res, next) => {
+  try {
+    await revokeAllUserSessions(req.user.id);
+
+    req.session.destroy((err) => {
+      if (err) return next(err);
+      res.clearCookie('cc.sid');
+      return sendSuccess(res, { message: 'All active sessions have been revoked.' });
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ── POST /api/auth/forgot-password ───────────────────────────────────────────
+router.post('/forgot-password', authLimiter, async (req, res, next) => {
+  try {
+    const { email } = req.body ?? {};
+
+    if (!email || !validateEmail(email)) {
+      return sendError(res, 'A valid email address is required.', {
+        status: 400,
+        code: 'VALIDATION_ERROR',
+      });
+    }
+
+    const result = await requestPasswordReset({ email });
+    return sendSuccess(res, result);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ── POST /api/auth/reset-password ────────────────────────────────────────────
+router.post('/reset-password', authLimiter, async (req, res, next) => {
+  try {
+    const { token, newPassword } = req.body ?? {};
+
+    if (!token) {
+      return sendError(res, 'Password reset token is required.', {
+        status: 400,
+        code: 'VALIDATION_ERROR',
+      });
+    }
+
+    if (!newPassword) {
+      return sendError(res, 'New password is required.', {
+        status: 400,
+        code: 'VALIDATION_ERROR',
+      });
+    }
+
+    const passwordValidation = validatePasswordPolicy(newPassword);
+    if (!passwordValidation.valid) {
+      return sendError(res, passwordValidation.error, {
+        status: 400,
+        code: 'VALIDATION_ERROR',
+      });
+    }
+
+    const user = await resetPassword({ token, newPassword });
+    return sendSuccess(res, {
+      user,
+      message: 'Password has been reset successfully. Please log in with your new password.',
+    });
+  } catch (err) {
+    if (err.code === 'INVALID_TOKEN') {
+      return sendError(res, err.message, { status: 400, code: 'INVALID_TOKEN' });
+    }
+    if (err.code === 'VALIDATION_ERROR') {
+      return sendError(res, err.message, { status: 400, code: 'VALIDATION_ERROR' });
+    }
+    return next(err);
+  }
+});
+
+// ── POST /api/auth/send-verification ─────────────────────────────────────────
+router.post('/send-verification', requireAuth, async (req, res, next) => {
+  try {
+    const result = await requestEmailVerification({ userId: req.user.id });
+    return sendSuccess(res, result);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ── POST /api/auth/verify-email ──────────────────────────────────────────────
+router.post('/verify-email', authLimiter, async (req, res, next) => {
+  try {
+    const { token } = req.body ?? {};
+
+    if (!token) {
+      return sendError(res, 'Verification token is required.', {
+        status: 400,
+        code: 'VALIDATION_ERROR',
+      });
+    }
+
+    const user = await verifyEmailToken({ token });
+    return sendSuccess(res, {
+      user,
+      message: 'Email verified successfully.',
+    });
+  } catch (err) {
+    if (err.code === 'INVALID_TOKEN') {
+      return sendError(res, err.message, { status: 400, code: 'INVALID_TOKEN' });
+    }
+    if (err.code === 'VALIDATION_ERROR') {
+      return sendError(res, err.message, { status: 400, code: 'VALIDATION_ERROR' });
+    }
+    return next(err);
+  }
 });
 
 // ── GET /api/auth/me ──────────────────────────────────────────────────────────

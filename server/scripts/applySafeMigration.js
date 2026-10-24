@@ -35,6 +35,49 @@ export async function applySafeMigration() {
   `);
   console.log('✓ users_departmentId_idx verified');
 
+  // Add sessionVersion and emailVerified columns to users if not exists
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "sessionVersion" INTEGER NOT NULL DEFAULT 1;
+    ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "emailVerified" BOOLEAN NOT NULL DEFAULT false;
+  `);
+  console.log('✓ users.sessionVersion and users.emailVerified columns verified');
+
+  // Create password_reset_tokens table if not exists
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "password_reset_tokens" (
+      "id" TEXT NOT NULL,
+      "userId" TEXT NOT NULL,
+      "tokenHash" TEXT NOT NULL,
+      "expiresAt" TIMESTAMP(3) NOT NULL,
+      "usedAt" TIMESTAMP(3),
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "password_reset_tokens_pkey" PRIMARY KEY ("id"),
+      CONSTRAINT "password_reset_tokens_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS "password_reset_tokens_tokenHash_key" ON "password_reset_tokens"("tokenHash");
+    CREATE INDEX IF NOT EXISTS "password_reset_tokens_userId_idx" ON "password_reset_tokens"("userId");
+    CREATE INDEX IF NOT EXISTS "password_reset_tokens_expiresAt_idx" ON "password_reset_tokens"("expiresAt");
+  `);
+  console.log('✓ password_reset_tokens table and indexes verified');
+
+  // Create email_verification_tokens table if not exists
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "email_verification_tokens" (
+      "id" TEXT NOT NULL,
+      "userId" TEXT NOT NULL,
+      "tokenHash" TEXT NOT NULL,
+      "expiresAt" TIMESTAMP(3) NOT NULL,
+      "usedAt" TIMESTAMP(3),
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "email_verification_tokens_pkey" PRIMARY KEY ("id"),
+      CONSTRAINT "email_verification_tokens_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS "email_verification_tokens_tokenHash_key" ON "email_verification_tokens"("tokenHash");
+    CREATE INDEX IF NOT EXISTS "email_verification_tokens_userId_idx" ON "email_verification_tokens"("userId");
+    CREATE INDEX IF NOT EXISTS "email_verification_tokens_expiresAt_idx" ON "email_verification_tokens"("expiresAt");
+  `);
+  console.log('✓ email_verification_tokens table and indexes verified');
+
   // 2. Create NotificationType enum if not exists
   await prisma.$executeRawUnsafe(`
     DO $$

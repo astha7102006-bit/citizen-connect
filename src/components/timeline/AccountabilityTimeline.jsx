@@ -141,19 +141,8 @@ export default function AccountabilityTimeline({
     };
   }, [complaint?.id, complaint?.dbId, complaint?.referenceNumber, complaint?.isRealRecord, isAuthenticated, fetchRealComplaintTimeline, isHi, fetchTrigger]);
 
-  // If no complaint provided
-  if (!complaint) {
-    return (
-      <div className="p-8 text-center text-slate-500 dark:text-slate-400 bg-white/60 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-800">
-        <FileText className="w-12 h-12 mx-auto mb-3 text-slate-400 opacity-60" />
-        <p className="font-semibold">{isHi ? 'कोई शिकायत रिकॉर्ड नहीं चुना गया' : 'No complaint record selected'}</p>
-        <p className="text-sm mt-1">{isHi ? 'समयरेखा देखने के लिए शिकायत चुनें' : 'Select a complaint to inspect its full accountability timeline.'}</p>
-      </div>
-    );
-  }
-
-  const rawHistory = liveEvents || complaint.auditHistory || [];
-  const effectiveRefDate = (complaint.isRealRecord || complaint.dbId) ? new Date() : simulatedDate;
+  const rawHistory = liveEvents || complaint?.auditHistory || [];
+  const effectiveRefDate = (complaint?.isRealRecord || complaint?.dbId) ? new Date() : simulatedDate;
 
   // Role-filtered history
   const roleFilteredHistory = useMemo(() => {
@@ -253,6 +242,17 @@ export default function AccountabilityTimeline({
 
     return list;
   }, [enrichedHistory, activeCategoryFilter, searchQuery, sortOrder]);
+
+  // If no complaint provided
+  if (!complaint) {
+    return (
+      <div className="p-8 text-center text-slate-500 dark:text-slate-400 bg-white/60 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-800">
+        <FileText className="w-12 h-12 mx-auto mb-3 text-slate-400 opacity-60" />
+        <p className="font-semibold">{isHi ? 'कोई शिकायत रिकॉर्ड नहीं चुना गया' : 'No complaint record selected'}</p>
+        <p className="text-sm mt-1">{isHi ? 'समयरेखा देखने के लिए शिकायत चुनें' : 'Select a complaint to inspect its full accountability timeline.'}</p>
+      </div>
+    );
+  }
 
   // Accordion toggle
   const toggleExpand = (eventId) => {

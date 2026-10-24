@@ -47,7 +47,7 @@ app.use(
       if (!origin || env.CORS_ORIGINS.includes(origin)) {
         callback(null, true);
       } else {
-        callback(new Error(`CORS: origin ${origin} is not allowed`));
+        callback(null, false);
       }
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -79,7 +79,13 @@ app.use(express.json({ limit: '2mb' }));
 // URL-encoded forms
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
-// ── HTTP logging ──────────────────────────────────────────────────────────────
+// ── HTTP logging (with sensitive query parameter redaction) ───────────────────
+// Redact sensitive query parameters (token, password, secret, key) so they are never leaked in logs
+morgan.token('url', (req) => {
+  const url = req.originalUrl || req.url || '';
+  return url.replace(/([?&](?:token|password|secret|code|apiKey|auth)=)[^&]+/gi, '$1[REDACTED]');
+});
+
 if (env.NODE_ENV !== 'test') {
   app.use(morgan(env.LOG_LEVEL));
 }

@@ -15,11 +15,22 @@ import { sendError } from '../utils/response.js';
  */
 export async function requireAuth(req, res, next) {
   const userId = req.session?.userId;
+  const sessionVersion = req.session?.sessionVersion;
 
   if (!userId) {
     return sendError(res, 'Authentication required. Please log in to continue.', {
       status: 401,
       code: 'UNAUTHENTICATED',
+    });
+  }
+
+  // Reject sessions missing an explicit sessionVersion
+  if (typeof sessionVersion !== 'number') {
+    req.session?.destroy?.(() => {});
+    res.clearCookie?.('cc.sid');
+    return sendError(res, 'Session is invalid or expired. Please log in again.', {
+      status: 401,
+      code: 'SESSION_INVALID',
     });
   }
 
@@ -34,6 +45,8 @@ export async function requireAuth(req, res, next) {
         role: true,
         departmentId: true,
         accountStatus: true,
+        sessionVersion: true,
+        emailVerified: true,
         createdAt: true,
         updatedAt: true,
         // passwordHash intentionally omitted
@@ -42,10 +55,21 @@ export async function requireAuth(req, res, next) {
 
     if (!user) {
       // Session references a deleted user — destroy and reject
-      req.session.destroy(() => {});
+      req.session?.destroy?.(() => {});
+      res.clearCookie?.('cc.sid');
       return sendError(res, 'Session is no longer valid. Please log in again.', {
         status: 401,
         code: 'SESSION_INVALID',
+      });
+    }
+
+    // Check if session version matches database record
+    if (user.sessionVersion !== sessionVersion) {
+      req.session?.destroy?.(() => {});
+      res.clearCookie?.('cc.sid');
+      return sendError(res, 'Session has been revoked or invalidated. Please log in again.', {
+        status: 401,
+        code: 'SESSION_REVOKED',
       });
     }
 
@@ -66,11 +90,13 @@ export async function requireAuth(req, res, next) {
 
 /**
  * Optional authentication middleware.
- * Attaches req.user if a valid session exists, but does not block unauthenticated requests.
+ * Attaches req.user if a valid, unrevoked session exists, but does not block unauthenticated requests.
  */
 export async function optionalAuth(req, res, next) {
   const userId = req.session?.userId;
-  if (!userId) {
+  const sessionVersion = req.session?.sessionVersion;
+
+  if (!userId || typeof sessionVersion !== 'number') {
     req.user = null;
     return next();
   }
@@ -86,15 +112,21 @@ export async function optionalAuth(req, res, next) {
         role: true,
         departmentId: true,
         accountStatus: true,
+        sessionVersion: true,
+        emailVerified: true,
         createdAt: true,
         updatedAt: true,
       },
     });
 
-    if (user && user.accountStatus === 'ACTIVE') {
+    if (user && user.accountStatus === 'ACTIVE' && user.sessionVersion === sessionVersion) {
       req.user = user;
     } else {
       req.user = null;
+      if (user && user.sessionVersion !== sessionVersion) {
+        req.session?.destroy?.(() => {});
+        res.clearCookie?.('cc.sid');
+      }
     }
     return next();
   } catch (_err) {
