@@ -35,6 +35,30 @@ export async function applySafeMigration() {
   `);
   console.log('✓ users_departmentId_idx verified');
 
+  // 1b. Add email verification and password reset security columns to users
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "emailVerifiedAt" TIMESTAMP(3);
+  `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "verifyTokenHash" TEXT;
+  `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "verifyTokenExpiresAt" TIMESTAMP(3);
+  `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "resetTokenHash" TEXT;
+  `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "resetTokenExpiresAt" TIMESTAMP(3);
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS "users_verifyTokenHash_idx" ON "users"("verifyTokenHash");
+  `);
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS "users_resetTokenHash_idx" ON "users"("resetTokenHash");
+  `);
+  console.log('✓ users authentication security columns & indexes verified');
+
   // 2. Create NotificationType enum if not exists
   await prisma.$executeRawUnsafe(`
     DO $$

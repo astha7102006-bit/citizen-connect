@@ -118,6 +118,13 @@ model User {
   departmentId String?
   department   Department? @relation("StaffDepartment", fields: [departmentId], references: [id], onDelete: SetNull)
 
+  // Account security: Email verification & Password reset
+  emailVerifiedAt      DateTime?
+  verifyTokenHash      String?
+  verifyTokenExpiresAt DateTime?
+  resetTokenHash       String?
+  resetTokenExpiresAt  DateTime?
+
   // Relationships
   complaints        Complaint[]        @relation("CitizenComplaints")
   eventsAuthored    ComplaintEvent[]   @relation("ActorEvents")
@@ -128,6 +135,8 @@ model User {
   @@index([email])
   @@index([role])
   @@index([departmentId])
+  @@index([verifyTokenHash])
+  @@index([resetTokenHash])
   @@map("users")
 }
 

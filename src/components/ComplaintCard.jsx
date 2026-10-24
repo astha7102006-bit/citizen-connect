@@ -11,8 +11,19 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { getTranslation } from '../i18n/translations';
+import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
 
-export default function ComplaintCard({ isDark, currentLang = 'en', onComplaintSubmitted }) {
+export default function ComplaintCard({
+  isDark: propIsDark,
+  currentLang: propCurrentLang,
+  onComplaintSubmitted,
+}) {
+  const { isDark: contextIsDark } = useTheme();
+  const { currentLang: contextLang, t } = useLanguage();
+
+  const isDark = propIsDark !== undefined ? propIsDark : contextIsDark;
+  const currentLang = propCurrentLang || contextLang || 'en';
   const [department, setDepartment] = useState('');
   const [description, setDescription] = useState('');
   const [attachment, setAttachment] = useState(null);

@@ -24,11 +24,13 @@ import {
 } from 'lucide-react';
 import { getTranslation, LANGUAGES } from '../i18n/translations';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Navbar({
-  isDark,
-  setIsDark,
-  currentLang = 'en',
+  isDark: propIsDark,
+  setIsDark: propSetIsDark,
+  currentLang: propCurrentLang,
   onOpenLanguageModal,
   onOpenFileComplaint,
   onOpenTrack,
@@ -36,6 +38,14 @@ export default function Navbar({
   onOpenSearch,
   onOpenLogin,
 }) {
+  const { isDark: contextIsDark, setIsDark: contextSetIsDark } = useTheme();
+  const { currentLang: contextLang, currentLangObj: contextLangObj, t } = useLanguage();
+
+  const isDark = propIsDark !== undefined ? propIsDark : contextIsDark;
+  const setIsDark = propSetIsDark || contextSetIsDark;
+  const currentLang = propCurrentLang || contextLang || 'en';
+  const currentLangObj = contextLangObj || LANGUAGES.find((l) => l.code === currentLang) || LANGUAGES[0];
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [portalsOpen, setPortalsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('Home');
@@ -53,8 +63,6 @@ export default function Navbar({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const currentLangObj = LANGUAGES.find((l) => l.code === currentLang) || LANGUAGES[0];
 
   const isCurrent = (path) => location.pathname === path;
 
