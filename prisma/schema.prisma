@@ -1,0 +1,384 @@
+// CitizenConnect — Production Relational Data Schema
+// Database Engine: PostgreSQL via Prisma ORM
+// Configured for Citizen Grievance Redressal, Tamper-Evident Audit Trails & Accountability Workflows
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ─── ENUMS ──────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  CITIZEN
+  OFFICIAL
+  REVIEWER
+  ADMIN
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+  PENDING_VERIFICATION
+}
+
+enum ComplaintPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ComplaintStatus {
+  SUBMITTED
+  ACKNOWLEDGED
+  UNDER_INVESTIGATION
+  ACTION_TAKEN
+  RESOLVED
+  CLOSED
+  APPEALED
+}
+
+enum EventType {
+  COMPLAINT_SUBMITTED
+  ACKNOWLEDGEMENT_RECORDED
+  CITIZEN_EVIDENCE_ADDED
+  OFFICIAL_RESPONSE_RECEIVED
+  INVESTIGATION_STARTED
+  INVESTIGATION_PROGRESS_UPDATED
+  ADDITIONAL_INFO_REQUESTED
+  CITIZEN_INFO_PROVIDED
+  DEPARTMENT_TRANSFER_REQUESTED
+  DEPARTMENT_TRANSFER_COMPLETED
+  DEADLINE_APPROACHING
+  DEADLINE_MISSED
+  COMPLAINT_ESCALATED
+  REVIEWER_FINDING_RECORDED
+  COMPLAINT_CLOSED
+  APPEAL_SUBMITTED
+  COMPLAINT_REOPENED
+  CORRECTION_RECORDED
+}
+
+enum EvidenceVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  FLAGGED_DUPLICATE
+}
+
+enum OfficialResponseType {
+  INTERIM
+  FINAL_REDRESSAL
+  CLARIFICATION
+  TRANSFER_JUSTIFICATION
+}
+
+enum OfficialResponseStatus {
+  DRAFT
+  REVIEW_PENDING
+  APPROVED
+  PUBLISHED
+  CONTESTED
+}
+
+enum EscalationTriggerType {
+  AUTOMATIC_SLA_LAPSE
+  CITIZEN_APPEAL
+  MANUAL_REVIEW_ESCALATION
+}
+
+enum EscalationStatus {
+  ACTIVE
+  RESOLVED
+  SUPERSEDED
+  CANCELLED
+}
+
+// ─── 1. USER MODEL ──────────────────────────────────────────────────────────
+
+model User {
+  id            String        @id @default(uuid())
+  name          String
+  email         String        @unique
+  phone         String?
+  passwordHash  String? // Phase 3 model field for bcrypt hash
+  role          UserRole      @default(CITIZEN)
+  accountStatus AccountStatus @default(ACTIVE)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Phase 6: Department assignment for OFFICIAL role scoping
+  // Nullable — CITIZEN accounts have no department. REVIEWER/ADMIN see all.
+  departmentId String?
+  department   Department? @relation("StaffDepartment", fields: [departmentId], references: [id], onDelete: SetNull)
+
+  // Relationships
+  complaints        Complaint[]        @relation("CitizenComplaints")
+  eventsAuthored    ComplaintEvent[]   @relation("ActorEvents")
+  uploadedEvidence  Evidence[]         @relation("UploadedEvidence")
+  officialResponses OfficialResponse[] @relation("AuthoredResponses")
+  notifications     Notification[]     @relation("UserNotifications")
+
+  @@index([email])
+  @@index([role])
+  @@index([departmentId])
+  @@map("users")
+}
+
+// ─── 2. DEPARTMENT MODEL ────────────────────────────────────────────────────
+
+model Department {
+  id             String   @id @default(uuid())
+  code           String   @unique // e.g. MCD, PWD, POL, HFW, RTO, EDU
+  name           String
+  description    String?  @db.Text
+  contactEmail   String?
+  contactPhone   String?
+  officeLocation String?
+  isActive       Boolean  @default(true)
+  slaDaysLevel1  Int      @default(7)
+  slaDaysLevel2  Int      @default(15)
+  slaDaysLevel3  Int      @default(30)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Currently assigned complaints
+  complaints   Complaint[] @relation("DepartmentComplaints")
+  staffMembers User[]      @relation("StaffDepartment")
+
+  @@index([code])
+  @@index([isActive])
+  @@map("departments")
+}
+
+// ─── 3. COMPLAINT MODEL ─────────────────────────────────────────────────────
+
+model Complaint {
+  id                     String            @id @default(uuid())
+  referenceNumber        String            @unique // e.g. CC-2026-DL-28491
+  title                  String
+  description            String            @db.Text
+  category               String
+  priority               ComplaintPriority @default(MEDIUM)
+  status                 ComplaintStatus   @default(SUBMITTED)
+  stage                  Int               @default(1) // 1: GRO, 2: Appellate, 3: Lokayukta, 4: Closed
+  stageName              String            @default("Level 1: Grievance Officer Assigned")
+  isAnonymous            Boolean           @default(false)
+  isRestrictedFromPublic Boolean           @default(false)
+  restrictionReason      String?           @db.Text
+  restrictedAt           DateTime?
+
+  // Citizen linkage (nullable for whistleblower anonymous submissions)
+  citizenId String?
+  citizen   User?   @relation("CitizenComplaints", fields: [citizenId], references: [id], onDelete: SetNull)
+
+  // Current Responsible Department (can transfer without losing history)
+  departmentId String?
+  department   Department? @relation("DepartmentComplaints", fields: [departmentId], references: [id], onDelete: SetNull)
+
+  filedAt              DateTime  @default(now())
+  slaDaysRemaining     Int?      @default(7)
+  targetCompletionDate DateTime?
+  resolvedAt           DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  // Dependent history: Retained permanently when department changes
+  events            ComplaintEvent[]   @relation("ComplaintHistory")
+  evidence          Evidence[]         @relation("ComplaintEvidence")
+  officialResponses OfficialResponse[] @relation("ComplaintResponses")
+  escalations       Escalation[]       @relation("ComplaintEscalations")
+
+  @@index([referenceNumber])
+  @@index([departmentId])
+  @@index([citizenId])
+  @@index([status])
+  @@index([stage])
+  @@index([filedAt])
+  @@map("complaints")
+}
+
+// ─── 4. COMPLAINT EVENT MODEL (ACCOUNTABILITY TIMELINE AUDIT) ───────────────
+
+model ComplaintEvent {
+  id          String    @id @default(uuid())
+  sequence    Int // Monotonic sequence 1, 2, 3... per complaint
+  eventId     String? // e.g. "EVT-28491-01"
+  complaintId String
+  complaint   Complaint @relation("ComplaintHistory", fields: [complaintId], references: [id], onDelete: Cascade)
+
+  eventType      EventType
+  previousStatus ComplaintStatus?
+  newStatus      ComplaintStatus?
+
+  // Actor linkage (nullable for automated system SLA watchdogs)
+  actorId   String?
+  actor     User?   @relation("ActorEvents", fields: [actorId], references: [id], onDelete: SetNull)
+  actorName String? // Snapshot: e.g. "ACP V. S. Patil"
+  actorRole String? // "Citizen", "Official", "Reviewer", "System"
+
+  // Department snapshot at event occurrence (preserves tenure across transfers)
+  responsibleDepartment String? // e.g. "Ward 14 Zonal Office, MCD"
+
+  title   String?
+  details String  @db.Text
+  reason  String? @db.Text
+
+  // Cryptographic Hash-Chain Verification
+  previousHash String  @default("0000000000000000000000000000000000000000000000000000000000000000")
+  hash         String? // SHA-256 block hash for tamper evidence
+
+  metadata Json? // Structured event attributes (transferReason, hearingDate, SLA days)
+
+  timestamp DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@unique([complaintId, sequence])
+  @@index([complaintId])
+  @@index([eventType])
+  @@index([timestamp])
+  @@map("complaint_events")
+}
+
+// ─── 5. EVIDENCE MODEL ──────────────────────────────────────────────────────
+
+model Evidence {
+  id          String    @id @default(uuid())
+  complaintId String
+  complaint   Complaint @relation("ComplaintEvidence", fields: [complaintId], references: [id], onDelete: Cascade)
+
+  uploaderId String?
+  uploader   User?   @relation("UploadedEvidence", fields: [uploaderId], references: [id], onDelete: SetNull)
+
+  fileName     String // Safe server storage name
+  originalName String // Original upload name
+  contentType  String // MIME type: "application/pdf", "image/jpeg", "audio/m4a"
+  fileSize     BigInt // Size in bytes
+  storageKey   String // S3 or filesystem storage key
+
+  sha256Fingerprint  String // SHA-256 byte fingerprint
+  verificationStatus EvidenceVerificationStatus @default(PENDING)
+
+  isRedacted         Boolean @default(false)
+  redactedStorageKey String? // Redacted copy for officials
+
+  metadata Json? // EXIF, GPS coordinates, audio duration
+
+  uploadedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([complaintId])
+  @@index([sha256Fingerprint])
+  @@index([verificationStatus])
+  @@map("evidence")
+}
+
+// ─── 6. OFFICIAL RESPONSE MODEL ─────────────────────────────────────────────
+
+model OfficialResponse {
+  id          String    @id @default(uuid())
+  complaintId String
+  complaint   Complaint @relation("ComplaintResponses", fields: [complaintId], references: [id], onDelete: Cascade)
+
+  authorId          String?
+  author            User?   @relation("AuthoredResponses", fields: [authorId], references: [id], onDelete: SetNull)
+  authorName        String // Official officer name snapshot
+  authorDesignation String? // e.g. "Joint Commissioner (Appellate Authority)"
+
+  responseText         String                 @db.Text
+  responseType         OfficialResponseType   @default(INTERIM)
+  status               OfficialResponseStatus @default(PUBLISHED)
+  isApprovedByReviewer Boolean                @default(true)
+
+  hearingDate     DateTime?
+  contestedReason String?   @db.Text // If challenged by official via contested response
+
+  submittedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([complaintId])
+  @@index([authorId])
+  @@index([responseType])
+  @@index([status])
+  @@map("official_responses")
+}
+
+// ─── 7. ESCALATION MODEL ────────────────────────────────────────────────────
+
+model Escalation {
+  id          String    @id @default(uuid())
+  complaintId String
+  complaint   Complaint @relation("ComplaintEscalations", fields: [complaintId], references: [id], onDelete: Cascade)
+
+  escalationLevel Int // 2: Appellate, 3: Lokayukta/ACB
+  fromLevel       Int                   @default(1)
+  toLevel         Int                   @default(2)
+  reason          String                @db.Text
+  triggerType     EscalationTriggerType @default(AUTOMATIC_SLA_LAPSE)
+
+  triggerTimestamp  DateTime  @default(now())
+  deadlineTimestamp DateTime? // Statutory SLA limit
+
+  status          EscalationStatus @default(ACTIVE)
+  resolutionNotes String?          @db.Text
+  resolvedAt      DateTime?
+
+  metadata Json? // Tracking metadata
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([complaintId])
+  @@index([escalationLevel])
+  @@index([status])
+  @@index([triggerTimestamp])
+  @@map("escalations")
+}
+
+// ─── 8. SESSION MODEL (CONNECT-PG-SIMPLE STORE) ─────────────────────────────
+
+model Session {
+  sid    String   @id @db.VarChar
+  sess   Json     @db.Json
+  expire DateTime @db.Timestamp(6)
+
+  @@index([expire], map: "IDX_session_expire")
+  @@map("session")
+}
+
+// ─── 9. NOTIFICATION MODEL ──────────────────────────────────────────────────
+
+enum NotificationType {
+  STATUS_CHANGE
+  OFFICIAL_RESPONSE
+  TRANSFER
+  ESCALATION
+  SYSTEM
+}
+
+model Notification {
+  id          String           @id @default(uuid())
+  userId      String
+  user        User             @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  complaintId String?
+  type        NotificationType @default(SYSTEM)
+  title       String
+  message     String           @db.Text
+  metadata    Json?
+  isRead      Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+
+  @@index([userId])
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+

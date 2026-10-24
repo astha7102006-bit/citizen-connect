@@ -1,0 +1,79 @@
+{
+  "name": "citizenconnect",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "server": "node server/index.js",
+    "server:dev": "nodemon --watch server server/index.js",
+    "ai-server": "node server/aiServer.mjs",
+    "ai-server:dev": "nodemon --watch server server/aiServer.mjs",
+    "dev:all": "node -e \"const {spawn}=require('child_process');['npm run dev','npm run server:dev','npm run ai-server:dev'].forEach(c=>{const [cmd,...a]=c.split(' ');spawn(cmd,a,{stdio:'inherit',shell:true})})\"",
+    "health": "node -e \"fetch('http://127.0.0.1:4000/api/health').then(r=>r.json()).then(d=>console.log(JSON.stringify(d,null,2)))\"",
+    "health:db": "node -e \"fetch('http://127.0.0.1:4000/api/health/db').then(r=>r.json()).then(d=>console.log(JSON.stringify(d,null,2)))\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "prisma:validate": "prisma validate",
+    "prisma:format": "prisma format",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "seed:departments": "node server/scripts/seedDepartments.js",
+    "seed:staff": "node server/scripts/seedStaff.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "@tailwindcss/vite": "^4.3.3",
+    "bcryptjs": "^3.0.3",
+    "connect-pg-simple": "^10.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "4.21.2",
+    "express-rate-limit": "^8.7.1",
+    "express-session": "^1.19.0",
+    "helmet": "8.0.0",
+    "lucide-react": "^1.61.0",
+    "morgan": "1.10.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.4",
+    "tailwindcss": "^4.3.3",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@types/cors": "2.8.17",
+    "@types/express": "5.0.3",
+    "@types/morgan": "1.9.9",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "@vitest/coverage-v8": "^5.0.5",
+    "nodemon": "3.1.10",
+    "oxlint": "^1.88.0",
+    "prisma": "^6.19.3",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.5"
+  },
+  "vitest": {
+    "environment": "node",
+    "include": [
+      "server/__tests__/**/*.test.js"
+    ],
+    "coverage": {
+      "provider": "v8",
+      "include": [
+        "server/**/*.js"
+      ],
+      "exclude": [
+        "server/__tests__/**",
+        "server/index.js",
+        "server/aiServer.mjs"
+      ]
+    }
+  }
+}

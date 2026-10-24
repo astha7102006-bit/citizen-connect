@@ -1,0 +1,119 @@
+@import "tailwindcss";
+
+@layer base {
+  * {
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  body {
+    overflow-x: hidden;
+  }
+}
+
+/* Glassmorphism custom classes */
+.glass-panel-light {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+
+.glass-panel-dark {
+  background: rgba(13, 24, 43, 0.72);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 20px rgba(14, 165, 233, 0.08);
+}
+
+.glass-input-light {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  color: #1e293b;
+}
+
+.glass-input-dark {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(51, 65, 85, 0.7);
+  color: #f8fafc;
+}
+
+/* Tricolor line gradient */
+.tricolor-gradient {
+  background: linear-gradient(90deg, #FF9933 0%, #FFFFFF 50%, #138808 100%);
+}
+
+.tricolor-gradient-border {
+  border-image: linear-gradient(90deg, #FF9933 0%, #FFFFFF 50%, #138808 100%) 1;
+}
+
+/* Button gradients matching screenshot */
+.btn-primary-gradient {
+  background: linear-gradient(90deg, #0F4C81 0%, #0D6954 50%, #107C41 100%);
+  transition: all 0.25s ease;
+}
+
+.btn-primary-gradient:hover {
+  background: linear-gradient(90deg, #135c9d 0%, #108167 50%, #149950 100%);
+  box-shadow: 0 8px 25px -4px rgba(16, 124, 65, 0.4);
+  transform: translateY(-1px);
+}
+
+/* ─── ACCESSIBILITY & SCALING STYLES (PROMPT 10) ─────────────────────────── */
+
+/* 1. Text Size Levels */
+html.text-size-normal {
+  font-size: 16px;
+}
+
+html.text-size-medium {
+  font-size: 18px;
+}
+
+html.text-size-large {
+  font-size: 20px;
+}
+
+/* 2. High Contrast Mode (WCAG AAA) */
+html.high-contrast {
+  filter: contrast(125%);
+}
+
+html.high-contrast.dark {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+html.high-contrast.dark * {
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+html.high-contrast:not(.dark) {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+html.high-contrast:not(.dark) * {
+  border-color: rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Visible Keyboard Focus Rings */
+:focus-visible {
+  outline: 3px solid #E06820 !important;
+  outline-offset: 2px !important;
+}
+
+/* 3. Reduced Motion Support */
+html.reduced-motion *,
+html.reduced-motion *::before,
+html.reduced-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+/* 4. Minimum Touch Target (WCAG 2.1 Success Criterion 2.5.5) */
+.btn-touch-target {
+  min-height: 48px;
+  min-width: 48px;
+}

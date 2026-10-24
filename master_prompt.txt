@@ -1,0 +1,296 @@
+<USER_REQUEST>
+# ANTIGRAVITY MASTER PROMPT — CITIZENCONNECT
+
+## Project Objective
+Build a professional, premium, responsive government accountability platform landing page called **CitizenConnect**, matching the two reference screenshots provided in the project folder EXACTLY:
+1. Light Mode Reference
+2. Dark Mode Reference
+
+**IMPORTANT:** Treat both reference images as the source of truth. Do not invent a different layout, change the component positions, or create a generic government website. Reproduce the same visual design, spacing, proportions, typography, glassmorphism, icons, navigation, buttons, complaint form, and bottom statistics bar as closely as possible.
+
+First inspect the existing codebase, framework, dependencies, public assets, and both reference images. Then implement the design directly in the existing project. Preserve working functionality and do not unnecessarily rewrite unrelated code.
+
+## 1. Parliament Background — Highest Priority
+
+Use a high-resolution, photorealistic image of the actual Indian Parliament building (Sansad Bhavan), preferably the recognizable circular Parliament complex shown in the reference screenshots.
+
+Requirements:
+- The actual Indian Parliament must be recognizable and architecturally accurate.
+- Position the Parliament in the center and right side of the hero background, as shown in the reference images.
+- Display the Indian national flag on a visible flagpole above the Parliament building.
+- Use a sharp, high-resolution image with realistic architecture, detailed columns, windows, landscaping, and natural lighting.
+- Avoid blurry, pixelated, distorted, cartoonish, AI-looking, or incorrectly shaped architecture.
+- Do not generate a replacement building using CSS, gradients, or geometric shapes.
+- Do not stretch, distort, crop excessively, or obscure the Parliament.
+- Use an optimized image with appropriate object-fit and responsive positioning.
+- Keep the Parliament clearly visible in both themes.
+- Apply carefully balanced background overlays only where necessary for text readability.
+
+### Light Mode
+Use a clear, warm golden-hour or sunrise photograph of the Parliament with a naturally illuminated building, blue sky, warm sunlight, and the Indian flag. Keep the background bright and elegant.
+
+### Dark Mode
+Use the same Parliament composition with a cinematic evening/night appearance, deep navy sky, warmly illuminated Parliament lights, visible landscaping, and the Indian national flag.
+
+Prefer two carefully selected, high-resolution photographs of the real Parliament if necessary. If suitable local assets are already provided, reuse them. Do not silently substitute an unrelated government building.
+
+## 2. Realistic Indian Flag Animation — Essential
+
+The Indian national flag must move naturally as if real wind is blowing across it.
+
+Implement a realistic, continuous flag-waving animation:
+- The flag should gently ripple from the pole toward its free edge.
+- Create natural fabric waves with multiple subtle folds and changing highlights/shadows.
+- Keep the pole stationary.
+- Anchor the flag correctly to the pole.
+- Preserve the correct saffron, white, and India-green horizontal stripes.
+- Keep the navy-blue Ashoka Chakra centered in the white band.
+- Maintain correct flag proportions, colors, and recognizable details throughout the animation.
+- Use smooth, organic movement instead of a simple left-right rotation or a flat waving emoji.
+- The animation should loop seamlessly and look realistic at normal viewing size.
+- The flag must remain sharp and clearly visible against the sky.
+- Do not animate the entire Parliament building or the background photograph.
+
+### Preferred implementation
+Use Three.js with a subdivided plane mesh and vertex displacement, or a lightweight WebGL shader, to simulate fabric movement. Use a high-quality Indian flag texture with the correct proportions and Ashoka Chakra.
+
+If the project already uses a suitable 3D rendering library, reuse the existing setup. Otherwise, implement the most reliable and performant solution compatible with the current framework.
+
+If WebGL is unavailable, provide a graceful CSS/SVG fallback with subtle fabric-wave distortion. Do not replace the flag with a waving emoji.
+
+Keep the animation optimized for desktop and mobile. Respect reduced-motion accessibility preferences.
+
+## 3. Exact Landing Page Layout
+
+Match the supplied screenshots.
+
+### A. Header / Navigation
+Create a transparent or subtly glassmorphic header spanning the full viewport width.
+
+Left section:
+- Indian national emblem, using an appropriate official asset where permitted.
+- Brand name: CitizenConnect
+- Subtitle: Government Accountability Platform
+
+Center navigation:
+- Home
+- File Complaint
+- Track Status
+- About Us
+- Help
+
+Right section:
+- Search icon
+- Login / Register button
+
+Match the reference image's horizontal alignment, font sizes, spacing, navigation height, and subtle divider.
+
+The header must remain responsive on tablets and mobile devices.
+
+### B. Hero Section
+
+Use the following exact content:
+
+Eyebrow:
+YOUR VOICE · OUR PRIORITY
+
+Main heading:
+Building a Citizen-Powered Government Accountability Platform
+
+Description:
+Build a platform where a complaint against an official can’t quietly vanish; it moves up the chain on time, and the citizen can find free legal help.
+
+Keep the heading bold, professional, and dark navy in Light Mode; use a readable white or near-white color in Dark Mode.
+
+Maintain the same line breaks and visual hierarchy as the corresponding reference screenshot at desktop resolution.
+
+The hero content should occupy the left portion of the screen. The Parliament photograph should remain visible in the center and background.
+
+### C. Feature Highlights
+
+Create four horizontally aligned feature items with circular colored icon backgrounds:
+
+1. File Complaint
+   Subtitle: Report issues easily
+
+2. Track Progress
+   Subtitle: Stay informed
+
+3. Accountability
+   Subtitle: Stronger governance
+
+4. Free Legal Help
+   Subtitle: Get the support you need
+
+Use clean, consistent line icons. Match the reference colors: saffron/orange, blue, green, and violet.
+
+Use Lucide icons if Lucide is already installed.
+
+### D. Call-to-Action Buttons
+
+Primary button:
+File a Complaint →
+
+Secondary button:
+Learn More →
+
+Use the reference design:
+- Rounded pill-shaped buttons.
+- Deep navy/blue-to-green gradient on the primary action.
+- Subtle border and transparent/glass background on the secondary action.
+- Refined hover states, transitions, and accessible focus indicators.
+
+The buttons must perform their intended actions. Do not leave them as decorative elements.
+
+### E. Submit a Complaint Card
+
+Position a translucent glassmorphism complaint form on the right side of the hero, matching the reference screenshot's size and placement.
+
+Form heading:
+Submit a Complaint
+
+Subtitle:
+Let your voice be heard
+
+Form controls:
+1. Select Department dropdown.
+2. Complaint description textarea.
+3. Attach documents (optional).
+4. Submit Complaint button.
+
+Visual requirements:
+- Rounded corners.
+- Subtle glass effect and backdrop blur.
+- Fine border and realistic depth.
+- Appropriate contrast in both themes.
+- Consistent field heights, internal padding, and spacing.
+- Navy/blue and green gradient submit button.
+- Clear icons and readable labels.
+
+Implement actual form validation, department selection, optional document upload, and accessible error messages. Connect submission to the existing backend if one exists. If no backend exists, create a clearly defined integration point and provide a working demo flow without falsely claiming that complaints have been officially submitted to the government.
+
+### F. Bottom Statistics Bar
+
+Create the wide, rounded, translucent statistics bar near the bottom of the viewport, as in the reference images.
+
+Include four evenly distributed items:
+
+1. 100%
+   Citizen Focused
+
+2. Transparent
+   Process Tracking
+
+3. Faster Resolution
+   On-Time Action
+
+4. Stronger India
+   Together for a Better Tomorrow
+
+Use matching circular icons, subtle vertical separators, and balanced spacing.
+
+Keep the bar legible over the Parliament background. Ensure it does not overlap important content on smaller screens.
+
+## 4. Light Mode and Dark Mode
+
+Implement a fully functional theme toggle with persistent user preference.
+
+Use the supplied screenshots as exact visual references.
+
+### Light Mode
+- Bright sky and warm sunlight.
+- Clearly visible real Parliament architecture.
+- White, cream, and light glass surfaces.
+- Dark navy text.
+- Saffron, blue, and green accent colors.
+- Soft shadows and elegant borders.
+
+### Dark Mode
+- Dark navy and deep blue environment.
+- Parliament building illuminated with warm golden lights.
+- Deep navy glass panels with subtle blue borders.
+- White and cool-gray typography.
+- Blue and teal highlights with restrained saffron and green accents.
+- Controlled glow effects, maintaining readability.
+
+Important:
+Switching themes should update the UI, text, surfaces, borders, and background treatment without changing the layout. Keep the same component positions and dimensions across themes.
+
+## 5. Typography and Design Quality
+
+- Use a modern, professional sans-serif font such as Inter or the existing project font.
+- Match the screenshot's typography, font weights, letter spacing, and line heights.
+- Use consistent spacing and a clear visual hierarchy.
+- Keep icons aligned and uniform in size.
+- Avoid excessive gradients, unnecessary animations, oversized headings, random decorative elements, and generic template styling.
+- Use subtle transitions and polished hover effects.
+- Make the final result look like a production-quality civic technology platform, not a rough prototype.
+
+## 6. Technical Requirements
+
+Inspect the existing framework before making changes.
+
+- Preserve the current framework, routing, and established project architecture.
+- Reuse existing components and dependencies where possible.
+- Implement reusable components for the header, hero, feature highlights, complaint form, statistics bar, and theme toggle.
+- Use semantic HTML and accessible controls.
+- Ensure the page works on Chrome and modern desktop/mobile browsers.
+- Optimize images and lazy-load noncritical assets.
+- Prevent layout shifts and unnecessary rerenders.
+- Optimize the flag animation so it does not freeze scrolling or cause excessive CPU/GPU usage.
+- Use proper mobile breakpoints and responsive typography.
+- Respect prefers-reduced-motion.
+- Do not break existing routes, authentication, or backend integrations.
+- Do not add unnecessary dependencies.
+
+## 7. Reference Image Matching Rules
+
+Before implementation, examine BOTH reference images in the project folder.
+
+Compare the output against the references for:
+- Overall composition.
+- Header height and alignment.
+- Heading position and wrapping.
+- Parliament location and visibility.
+- Flag size and placement.
+- Complaint card position and dimensions.
+- Feature icon placement.
+- Button sizes and gradients.
+- Bottom statistics bar.
+- Typography and spacing.
+- Light and dark theme colors.
+
+Do not merely create something inspired by the screenshots. Reproduce the same design as closely as technically possible.
+
+Use the reference screenshots for visual guidance only. Build the actual website with real, responsive HTML/CSS components and functional controls; do not place either screenshot as a single full-page background image.
+
+## 8. Final Testing
+
+After implementation:
+
+1. Run the existing development server and resolve build errors.
+2. Verify both Light Mode and Dark Mode.
+3. Verify the flag has continuous, natural wind-driven movement.
+4. Confirm the Parliament photograph remains sharp and recognizable.
+5. Test all navigation links and buttons.
+6. Test complaint validation and file attachment behavior.
+7. Check desktop, tablet, and mobile layouts.
+8. Fix overlapping content, unreadable text, image cropping, and console errors.
+9. Compare screenshots against the supplied references and refine the layout.
+
+**FINAL PRIORITY ORDER:**
+1. Exact reference layout.
+2. Real, clear, recognizable Indian Parliament background.
+3. Realistic animated Indian national flag with natural fabric waves.
+4. Accurate Light Mode and Dark Mode.
+5. Professional glassmorphism and typography.
+6. Responsive design and functional interactions.
+
+Do not stop after generating a plan. Inspect the project, implement the changes, run the application, and fix any errors you encounter.
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-10-22T10:44:10+05:30.
+</ADDITIONAL_METADATA>
+<USER_SETTINGS_CHANGE>
+The user changed setting `Model Selection` from None to Gemini 3.8 Flash (Medium). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.
+</USER_SETTINGS_CHANGE>
