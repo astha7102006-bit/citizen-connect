@@ -82,6 +82,52 @@ function resolveDatabaseUrl() {
   return raw;
 }
 
+/**
+ * In production, validate that APP_URL is explicitly set to a valid HTTPS URL.
+ * Rejects localhost, private IP ranges, non-HTTPS protocols, or malformed URLs.
+ * Reads NODE_ENV live so it can be tested by overriding process.env.
+ */
+export function resolveAppUrl(nodeEnv) {
+  const env_node = nodeEnv ?? process.env.NODE_ENV ?? 'development';
+  const isProd = env_node === 'production';
+  const raw = process.env.APP_URL;
+  if (isProd) {
+    if (!raw || raw.trim().length === 0) {
+      throw new Error(
+        '[STARTUP] APP_URL is required in production. Specify the public canonical HTTPS application URL.'
+      );
+    }
+    let parsed;
+    try {
+      parsed = new URL(raw.trim());
+    } catch {
+      throw new Error(`[STARTUP] APP_URL must be a valid absolute URL: "${raw}"`);
+    }
+    if (parsed.protocol !== 'https:') {
+      throw new Error(
+        `[STARTUP] APP_URL must use https:// protocol in production, received: "${parsed.protocol}"`
+      );
+    }
+    const hostname = parsed.hostname.toLowerCase();
+    const isLocalhostOrPrivate =
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '::1' ||
+      hostname.endsWith('.local') ||
+      hostname.endsWith('.localhost') ||
+      /^10\./.test(hostname) ||
+      /^192\.168\./.test(hostname) ||
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname);
+    if (isLocalhostOrPrivate) {
+      throw new Error(
+        `[STARTUP] APP_URL cannot point to localhost or private network addresses in production: "${hostname}"`
+      );
+    }
+    return raw.trim().replace(/\/+$/, '');
+  }
+  return (raw?.trim() || 'http://localhost:5173').replace(/\/+$/, '');
+}
+
 function optional(name, defaultValue = '') {
   return process.env[name] ?? defaultValue;
 }
@@ -91,6 +137,7 @@ export const env = {
   NODE_ENV,
   PORT: parseInt(optional('PORT', '4000'), 10),
   HOST: optional('HOST', '127.0.0.1'),
+  APP_URL: resolveAppUrl(),
 
   // Trust-proxy count: 0 = no proxy, 1 = one reverse proxy (nginx/CloudFlare), etc.
   // Must be explicitly configured to match actual deployment topology.

@@ -59,6 +59,12 @@ export async function applySafeMigration() {
   `);
   console.log('✓ users authentication security columns & indexes verified');
 
+  // 1c. Add sessionVersion column to users for instant cross-instance session revocation on password reset
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "sessionVersion" INTEGER NOT NULL DEFAULT 1;
+  `);
+  console.log('✓ users.sessionVersion column verified');
+
   // 2. Create NotificationType enum if not exists
   await prisma.$executeRawUnsafe(`
     DO $$

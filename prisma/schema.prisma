@@ -124,6 +124,7 @@ model User {
   verifyTokenExpiresAt DateTime?
   resetTokenHash       String?
   resetTokenExpiresAt  DateTime?
+  sessionVersion       Int       @default(1)
 
   // Relationships
   complaints        Complaint[]        @relation("CitizenComplaints")

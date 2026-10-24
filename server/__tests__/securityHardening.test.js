@@ -64,7 +64,8 @@ const makeDbUser = (overrides = {}) => ({
   passwordHash: 'hashed::StrongPass123!',
   role: 'CITIZEN',
   accountStatus: 'ACTIVE',
-  emailVerifiedAt: null,
+  emailVerifiedAt: new Date('2026-01-01T00:00:00Z'), // verified by default for login tests
+  sessionVersion: 1,
   verifyTokenHash: null,
   verifyTokenExpiresAt: null,
   resetTokenHash: null,

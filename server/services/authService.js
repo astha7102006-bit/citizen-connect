@@ -59,13 +59,14 @@ function hashToken(rawToken) {
 }
 
 /**
- * Send an email (stub — requires SMTP configuration).
- * Logs a warning when SMTP is not configured so devs know it's a no-op.
- * NEVER logs token values.
+ * Send an email (requires SMTP configuration).
+ * Logs an operational notice when SMTP is not configured so devs know it's a no-op.
+ * NEVER logs raw token values or reset links.
  *
  * @param {{ to: string, subject: string, text: string, html?: string }} opts
+ * @returns {Promise<{ sent: boolean, reason?: string }>}
  */
-async function sendEmail({ to, subject, text }) {
+export async function sendEmail({ to, subject, text }) {
   if (!env.SMTP_HOST || !env.SMTP_USER) {
     console.warn(
       `[Email] SMTP not configured. Email NOT sent to ${to}. ` +
@@ -75,10 +76,7 @@ async function sendEmail({ to, subject, text }) {
     return { sent: false, reason: 'SMTP_NOT_CONFIGURED' };
   }
 
-  // When SMTP is available, use nodemailer (installed separately if needed).
-  // This implementation is a safe stub — add nodemailer transport here.
   try {
-    // Dynamic import so the service doesn't crash when nodemailer is absent
     const nodemailer = await import('nodemailer');
     const transporter = nodemailer.default.createTransport({
       host: env.SMTP_HOST,
@@ -112,6 +110,8 @@ async function sendEmail({ to, subject, text }) {
  *  - Role is ALWAYS forced to CITIZEN regardless of input.
  *  - Password is hashed with bcryptjs before storage.
  *  - Password max-length is enforced before bcrypt to prevent DoS.
+ *  - Account is created in PENDING_VERIFICATION state until email is verified.
+ *  - Generates a cryptographically random, expiring, single-use verification token.
  *
  * @param {{ name: string, email: string, password: string, phone?: string }} data
  * @returns {Promise<object>} Sanitised user record
@@ -149,6 +149,8 @@ export async function registerUser({ name, email, password, phone }) {
   }
 
   const passwordHash = await bcrypt.hash(password, env.BCRYPT_ROUNDS);
+  const { rawToken, tokenHash } = generateSecureToken(32);
+  const expiresAt = new Date(Date.now() + env.EMAIL_VERIFY_TOKEN_TTL_HOURS * 60 * 60 * 1000);
 
   const user = await prisma.user.create({
     data: {
@@ -157,9 +159,33 @@ export async function registerUser({ name, email, password, phone }) {
       passwordHash,
       phone: phone?.trim() || null,
       role: 'CITIZEN',          // Hardcoded — never from client input
-      accountStatus: 'ACTIVE',
+      accountStatus: 'PENDING_VERIFICATION',
+      emailVerifiedAt: null,
+      verifyTokenHash: tokenHash,
+      verifyTokenExpiresAt: expiresAt,
+      sessionVersion: 1,
     },
   });
+
+  const verifyUrl = `${env.APP_URL}/verify-email?token=${rawToken}`;
+
+  const emailResult = await sendEmail({
+    to: user.email,
+    subject: 'CitizenConnect — Verify Your Email Address',
+    text:
+      `Hello ${user.name},\n\n` +
+      `Thank you for registering with CitizenConnect.\n` +
+      `Please verify your email address to activate your account:\n` +
+      `${verifyUrl}\n\n` +
+      `This link expires in ${env.EMAIL_VERIFY_TOKEN_TTL_HOURS} hour${env.EMAIL_VERIFY_TOKEN_TTL_HOURS !== 1 ? 's' : ''}.\n\n` +
+      `CitizenConnect Team`,
+  });
+
+  if (!emailResult.sent) {
+    console.warn(
+      `[Email] Verification email delivery not completed for recipient: ${emailResult.reason || 'Unknown error'}`
+    );
+  }
 
   return sanitiseUser(user);
 }
@@ -171,6 +197,8 @@ export async function registerUser({ name, email, password, phone }) {
  *
  * Security note: Both "email not found" and "wrong password" return the
  * SAME generic error to prevent account enumeration attacks.
+ *
+ * Enforces email verification: unverified accounts cannot log in.
  *
  * @param {{ email: string, password: string }} data
  * @returns {Promise<object>} Sanitised user record
@@ -207,6 +235,15 @@ export async function loginUser({ email, password }) {
     const err = new Error(GENERIC_ERROR);
     err.code = 'INVALID_CREDENTIALS';
     err.status = 401;
+    throw err;
+  }
+
+  if (user.accountStatus === 'PENDING_VERIFICATION' || !user.emailVerifiedAt) {
+    const err = new Error(
+      'Please verify your email address before logging in. Check your inbox for the verification link.'
+    );
+    err.code = 'EMAIL_NOT_VERIFIED';
+    err.status = 403;
     throw err;
   }
 
@@ -253,9 +290,9 @@ export async function initiatePasswordReset({ email }) {
     },
   });
 
-  const resetUrl = `${process.env.APP_URL || 'http://localhost:5173'}/reset-password?token=${rawToken}`;
+  const resetUrl = `${env.APP_URL}/reset-password?token=${rawToken}`;
 
-  await sendEmail({
+  const emailResult = await sendEmail({
     to: user.email,
     subject: 'CitizenConnect — Password Reset Request',
     text:
@@ -266,10 +303,17 @@ export async function initiatePasswordReset({ email }) {
       `If you did not request this, you can safely ignore this email.\n\n` +
       `CitizenConnect Security Team`,
   });
+
+  if (!emailResult.sent) {
+    console.warn(
+      `[Email] Password reset email delivery not completed for recipient: ${emailResult.reason || 'Unknown error'}`
+    );
+  }
 }
 
 /**
  * Complete password reset using a one-time token.
+ * Atomically increments sessionVersion to invalidate all existing sessions across instances.
  *
  * @param {{ token: string, password: string }} data
  */
@@ -311,6 +355,8 @@ export async function completePasswordReset({ token, password }) {
       // Invalidate token immediately (single-use)
       resetTokenHash: null,
       resetTokenExpiresAt: null,
+      // Atomically increment sessionVersion to revoke all active sessions across all instances
+      sessionVersion: { increment: 1 },
     },
   });
 }
@@ -321,6 +367,7 @@ export async function completePasswordReset({ token, password }) {
  * Send an email verification link to the specified user.
  *
  * @param {{ userId: string, email: string }} data
+ * @returns {Promise<{ sent: boolean, reason?: string }>}
  */
 export async function resendVerificationEmail({ userId, email: _email }) {
   const user = await prisma.user.findUnique({
@@ -353,9 +400,9 @@ export async function resendVerificationEmail({ userId, email: _email }) {
     },
   });
 
-  const verifyUrl = `${process.env.APP_URL || 'http://localhost:5173'}/verify-email?token=${rawToken}`;
+  const verifyUrl = `${env.APP_URL}/verify-email?token=${rawToken}`;
 
-  await sendEmail({
+  const emailResult = await sendEmail({
     to: user.email,
     subject: 'CitizenConnect — Verify Your Email Address',
     text:
@@ -365,10 +412,19 @@ export async function resendVerificationEmail({ userId, email: _email }) {
       `This link expires in ${env.EMAIL_VERIFY_TOKEN_TTL_HOURS} hour${env.EMAIL_VERIFY_TOKEN_TTL_HOURS !== 1 ? 's' : ''}.\n\n` +
       `CitizenConnect Team`,
   });
+
+  if (!emailResult.sent) {
+    console.warn(
+      `[Email] Verification email delivery not completed for recipient: ${emailResult.reason || 'Unknown error'}`
+    );
+  }
+
+  return { sent: emailResult.sent, reason: emailResult.reason };
 }
 
 /**
  * Mark email as verified using a single-use token.
+ * Only transitions PENDING_VERIFICATION accounts to ACTIVE; never reactivates SUSPENDED or DEACTIVATED accounts.
  *
  * @param {{ token: string }} data
  */
@@ -381,7 +437,7 @@ export async function verifyEmail({ token }) {
       verifyTokenHash: tokenHash,
       verifyTokenExpiresAt: { gt: now },
     },
-    select: { id: true, emailVerifiedAt: true },
+    select: { id: true, emailVerifiedAt: true, accountStatus: true },
   });
 
   if (!user) {
@@ -391,13 +447,20 @@ export async function verifyEmail({ token }) {
     throw err;
   }
 
+  const updateData = {
+    emailVerifiedAt: now,
+    // Invalidate token immediately (single-use)
+    verifyTokenHash: null,
+    verifyTokenExpiresAt: null,
+  };
+
+  // Only transition to ACTIVE if current status is PENDING_VERIFICATION
+  if (user.accountStatus === 'PENDING_VERIFICATION') {
+    updateData.accountStatus = 'ACTIVE';
+  }
+
   await prisma.user.update({
     where: { id: user.id },
-    data: {
-      emailVerifiedAt: now,
-      // Invalidate token immediately (single-use)
-      verifyTokenHash: null,
-      verifyTokenExpiresAt: null,
-    },
+    data: updateData,
   });
 }

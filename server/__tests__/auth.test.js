@@ -47,6 +47,8 @@ const makeDbUser = (overrides = {}) => ({
   passwordHash:  'hashed::Secret123!',
   role:          'CITIZEN',
   accountStatus: 'ACTIVE',
+  emailVerifiedAt: new Date('2026-01-01T00:00:00Z'),
+  sessionVersion: 1,
   createdAt:     new Date('2026-01-01T00:00:00Z'),
   updatedAt:     new Date('2026-01-01T00:00:00Z'),
   ...overrides,
@@ -222,12 +224,14 @@ describe('requireAuth middleware', () => {
       phone:         null,
       role:          'CITIZEN',
       accountStatus: 'ACTIVE',
+      emailVerifiedAt: new Date('2026-01-01T00:00:00Z'),
+      sessionVersion: 1,
       createdAt:     new Date('2026-01-01T00:00:00Z'),
       updatedAt:     new Date('2026-01-01T00:00:00Z'),
     };
     prisma.user.findUnique.mockResolvedValue(selectedUser);
 
-    const req  = { session: { userId: selectedUser.id, destroy: vi.fn() } };
+    const req  = { session: { userId: selectedUser.id, sessionVersion: 1, destroy: vi.fn() } };
     const res  = makeRes();
     const next = vi.fn();
 

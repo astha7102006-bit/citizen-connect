@@ -80,7 +80,9 @@ function RealAuthForm({ isDark, onSuccess }) {
         <div>
           <h3 className="text-lg font-bold">Welcome, {success.name}!</h3>
           <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-            {mode === 'register' ? 'Account created successfully.' : 'Signed in successfully.'}
+            {mode === 'register'
+              ? 'Account created! Please verify your email before logging in.'
+              : 'Signed in successfully.'}
           </p>
         </div>
       </div>

@@ -134,31 +134,62 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(async ({ email, password }) => {
+    setAuthLoading(true);
     setAuthError(null);
-    const json = await apiFetch('/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
-    setRealUser(json.data?.user ?? null);
-    return json.data?.user;
+    try {
+      const json = await apiFetch('/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      setRealUser(json.data?.user ?? null);
+      setAuthError(null);
+      return json.data?.user;
+    } catch (err) {
+      setRealUser(null);
+      const safeMessage = err.message || 'Authentication failed. Please check your credentials.';
+      setAuthError(safeMessage);
+      throw err;
+    } finally {
+      setAuthLoading(false);
+    }
   }, []);
 
   const register = useCallback(async ({ name, email, password, phone }) => {
+    setAuthLoading(true);
     setAuthError(null);
-    const json = await apiFetch('/register', {
-      method: 'POST',
-      body: JSON.stringify({ name, email, password, phone }),
-    });
-    setRealUser(json.data?.user ?? null);
-    return json.data?.user;
+    try {
+      const json = await apiFetch('/register', {
+        method: 'POST',
+        body: JSON.stringify({ name, email, password, phone }),
+      });
+      setRealUser(null);
+      setAuthError(null);
+      return json.data?.user;
+    } catch (err) {
+      setRealUser(null);
+      const safeMessage = err.message || 'Registration failed. Please check your details.';
+      setAuthError(safeMessage);
+      throw err;
+    } finally {
+      setAuthLoading(false);
+    }
   }, []);
 
   const logout = useCallback(async () => {
+    setAuthLoading(true);
+    setAuthError(null);
     try {
       await apiFetch('/logout', { method: 'POST' });
+    } catch (err) {
+      console.warn('[Auth] Logout warning:', err.message);
     } finally {
       setRealUser(null);
+      setAuthLoading(false);
     }
+  }, []);
+
+  const clearAuthError = useCallback(() => {
+    setAuthError(null);
   }, []);
 
   // ── Demo role-switcher state (PRESERVED — do not remove) ─────────────────────
@@ -198,6 +229,7 @@ export function AuthProvider({ children }) {
         isAuthenticated: !!realUser,
         authLoading,        // true while checking session on mount
         authError,
+        clearAuthError,
         login,
         register,
         logout,

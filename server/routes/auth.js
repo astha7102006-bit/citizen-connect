@@ -32,6 +32,7 @@ import {
 import { requireAuth } from '../middleware/requireAuth.js';
 import { sendSuccess, sendError } from '../utils/response.js';
 import { env } from '../config/env.js';
+import { prisma } from '../config/db.js';
 
 const router = Router();
 
@@ -101,17 +102,18 @@ function validateName(name) {
 
 /**
  * Regenerates the session ID (prevents session fixation), assigns user data,
- * then saves the session to the store before resolving.
+ * stores the active sessionVersion, then saves the session to the store before resolving.
  *
  * Returns a Promise that resolves to the session ID or rejects on failure.
  */
-function regenerateAndSaveSession(req, { userId, role }) {
+function regenerateAndSaveSession(req, { userId, role, sessionVersion = 1 }) {
   return new Promise((resolve, reject) => {
     req.session.regenerate((regenErr) => {
       if (regenErr) return reject(regenErr);
 
       req.session.userId = userId;
       req.session.role = role;
+      req.session.sessionVersion = sessionVersion;
 
       req.session.save((saveErr) => {
         if (saveErr) return reject(saveErr);
@@ -162,18 +164,18 @@ router.post('/register', registerLimiter, async (req, res, next) => {
 
     const user = await registerUser({ name, email, password, phone });
 
-    // Regenerate session ID to prevent session fixation, then persist.
-    // If regeneration or save fails, do NOT create a partial session.
-    try {
-      await regenerateAndSaveSession(req, { userId: user.id, role: user.role });
-    } catch (sessionErr) {
-      // Registration succeeded but session establishment failed.
-      // Return success without a session cookie — user will log in manually.
-      console.error('[Auth] Session setup failed after registration:', sessionErr.message);
-      return sendSuccess(res, { user, sessionEstablished: false }, { status: 201 });
-    }
-
-    return sendSuccess(res, { user, sessionEstablished: true }, { status: 201 });
+    // New accounts are created in PENDING_VERIFICATION state.
+    // They cannot log in or hold an authenticated session until email verification completes.
+    return sendSuccess(
+      res,
+      {
+        user,
+        sessionEstablished: false,
+        requiresVerification: true,
+        message: 'Account created successfully. Please check your email to verify your account before logging in.',
+      },
+      { status: 201 }
+    );
   } catch (err) {
     if (err.code === 'EMAIL_TAKEN') {
       return sendError(res, err.message, { status: 409, code: 'EMAIL_TAKEN' });
@@ -204,9 +206,13 @@ router.post('/login', loginLimiter, async (req, res, next) => {
 
     const user = await loginUser({ email, password });
 
-    // Regenerate session ID to prevent fixation, then persist.
+    // Regenerate session ID to prevent fixation, store sessionVersion, then persist.
     try {
-      await regenerateAndSaveSession(req, { userId: user.id, role: user.role });
+      await regenerateAndSaveSession(req, {
+        userId: user.id,
+        role: user.role,
+        sessionVersion: user.sessionVersion || 1,
+      });
     } catch (sessionErr) {
       return next(sessionErr);
     }
@@ -215,6 +221,9 @@ router.post('/login', loginLimiter, async (req, res, next) => {
   } catch (err) {
     if (err.code === 'INVALID_CREDENTIALS') {
       return sendError(res, err.message, { status: 401, code: 'INVALID_CREDENTIALS' });
+    }
+    if (err.code === 'EMAIL_NOT_VERIFIED') {
+      return sendError(res, err.message, { status: 403, code: 'EMAIL_NOT_VERIFIED' });
     }
     if (err.code === 'ACCOUNT_INACTIVE') {
       return sendError(res, err.message, { status: 403, code: 'ACCOUNT_INACTIVE' });
@@ -314,7 +323,8 @@ router.post('/reset-password', resetLimiter, async (req, res, next) => {
 });
 
 // ── POST /api/auth/verify-email ───────────────────────────────────────────────
-router.post('/verify-email', async (req, res, next) => {
+// Rate-limited to prevent brute-forcing token hashes
+router.post('/verify-email', resetLimiter, async (req, res, next) => {
   try {
     const { token } = req.body ?? {};
 
@@ -328,7 +338,7 @@ router.post('/verify-email', async (req, res, next) => {
     await verifyEmail({ token: token.trim() });
 
     return sendSuccess(res, {
-      message: 'Your email address has been verified successfully.',
+      message: 'Your email address has been verified successfully. You can now log in.',
     });
   } catch (err) {
     if (err.code === 'TOKEN_INVALID' || err.code === 'TOKEN_EXPIRED') {
@@ -339,12 +349,54 @@ router.post('/verify-email', async (req, res, next) => {
 });
 
 // ── POST /api/auth/resend-verify ─────────────────────────────────────────────
-router.post('/resend-verify', resetLimiter, requireAuth, async (req, res, next) => {
+router.post('/resend-verify', resetLimiter, async (req, res, next) => {
   try {
-    await resendVerificationEmail({ userId: req.user.id, email: req.user.email });
+    const rawEmail = req.body?.email;
+    let userId = req.session?.userId;
+    let email = null;
+
+    if (userId) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, email: true },
+      });
+      if (user) {
+        email = user.email;
+      } else {
+        userId = null;
+      }
+    }
+
+    if (!userId && rawEmail && validateEmail(rawEmail)) {
+      const user = await prisma.user.findUnique({
+        where: { email: rawEmail.trim().toLowerCase() },
+        select: { id: true, email: true },
+      });
+      if (user) {
+        userId = user.id;
+        email = user.email;
+      }
+    }
+
+    if (!userId) {
+      // Return generic success to avoid enumeration
+      return sendSuccess(res, {
+        message: 'If an unverified account with that email exists, a new verification link has been sent.',
+      });
+    }
+
+    const delivery = await resendVerificationEmail({ userId, email });
+
+    if (!delivery.sent && delivery.reason === 'SMTP_NOT_CONFIGURED') {
+      return sendSuccess(res, {
+        message: 'Verification request recorded. Email service is not yet configured on this server.',
+        delivered: false,
+      });
+    }
 
     return sendSuccess(res, {
       message: 'A new verification email has been sent. Please check your inbox.',
+      delivered: delivery.sent,
     });
   } catch (err) {
     if (err.code === 'ALREADY_VERIFIED') {

@@ -34,6 +34,8 @@ export async function requireAuth(req, res, next) {
         role: true,
         departmentId: true,
         accountStatus: true,
+        emailVerifiedAt: true,
+        sessionVersion: true,
         createdAt: true,
         updatedAt: true,
         // passwordHash intentionally omitted
@@ -47,6 +49,31 @@ export async function requireAuth(req, res, next) {
         status: 401,
         code: 'SESSION_INVALID',
       });
+    }
+
+    // Revoke sessions when sessionVersion in session does not match user's current version (e.g. after password reset)
+    if (
+      user.sessionVersion !== undefined &&
+      req.session.sessionVersion !== undefined &&
+      req.session.sessionVersion !== user.sessionVersion
+    ) {
+      req.session.destroy(() => {});
+      return sendError(
+        res,
+        'Session has been revoked due to a password reset. Please log in again.',
+        {
+          status: 401,
+          code: 'SESSION_REVOKED',
+        }
+      );
+    }
+
+    if (user.accountStatus === 'PENDING_VERIFICATION' || !user.emailVerifiedAt) {
+      return sendError(
+        res,
+        'Please verify your email address before continuing.',
+        { status: 403, code: 'EMAIL_NOT_VERIFIED' }
+      );
     }
 
     if (user.accountStatus !== 'ACTIVE') {
@@ -86,12 +113,21 @@ export async function optionalAuth(req, res, next) {
         role: true,
         departmentId: true,
         accountStatus: true,
+        emailVerifiedAt: true,
+        sessionVersion: true,
         createdAt: true,
         updatedAt: true,
       },
     });
 
-    if (user && user.accountStatus === 'ACTIVE') {
+    if (
+      user &&
+      user.accountStatus === 'ACTIVE' &&
+      user.emailVerifiedAt &&
+      (user.sessionVersion === undefined ||
+        req.session.sessionVersion === undefined ||
+        req.session.sessionVersion === user.sessionVersion)
+    ) {
       req.user = user;
     } else {
       req.user = null;
