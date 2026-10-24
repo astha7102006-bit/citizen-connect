@@ -21,7 +21,8 @@ export function LanguageProvider({ children }) {
     document.documentElement.lang = currentLang;
   }, [currentLang]);
 
-  const t = (key) => getTranslation(currentLang, key);
+  const t = (key, fallback) => getTranslation(currentLang, key, fallback);
+  const isHi = currentLang === 'hi';
 
   const currentLangObj = LANGUAGES.find((l) => l.code === currentLang) || LANGUAGES[0];
 
@@ -32,6 +33,7 @@ export function LanguageProvider({ children }) {
         setCurrentLang,
         currentLangObj,
         t,
+        isHi,
         languages: LANGUAGES,
       }}
     >

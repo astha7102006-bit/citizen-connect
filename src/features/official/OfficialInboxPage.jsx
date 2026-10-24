@@ -6,6 +6,7 @@ import Badge from '../../components/common/Badge';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { DEMO_ROLES } from '../../services/dataShaping';
 import RecordVerificationModal from '../../components/audit/RecordVerificationModal';
 import AccountabilityTimeline from '../../components/timeline/AccountabilityTimeline';
@@ -106,6 +107,7 @@ function mapRealComplaint(c) {
 
 export default function OfficialInboxPage() {
   const { isDark } = useTheme();
+  const { t } = useLanguage();
   const { user, realUser, isAuthenticated } = useAuth();
   const {
     getComplaintsForRole,
@@ -395,10 +397,10 @@ export default function OfficialInboxPage() {
   return (
     <div className="max-w-[1520px] mx-auto px-4 sm:px-8 lg:px-14 py-8">
       <PageHeader
-        title="Office Official Inbox — Redacted Grievance Triage"
-        subtitle="Departmental redressal console. In compliance with Whistleblower and Citizen Privacy provisions, personal citizen PII and witnesses are cryptographically redacted."
-        badge={<Badge variant="amber" dot>Official Role View</Badge>}
-        breadcrumbs={[{ label: 'Official Console' }, { label: 'Grievance Inbox' }]}
+        title={t('officialTitle')}
+        subtitle={t('officialSubtitle')}
+        badge={<Badge variant="amber" dot>{t('roleOfficial')}</Badge>}
+        breadcrumbs={[{ label: t('navScreens') }, { label: t('navOfficialInbox') }]}
         isDark={isDark}
       />
 

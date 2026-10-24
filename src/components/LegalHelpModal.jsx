@@ -9,8 +9,10 @@ import {
   BookOpen,
   CheckCircle,
 } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function LegalHelpModal({ isOpen, onClose, isDark }) {
+  const { t } = useLanguage();
   if (!isOpen) return null;
 
   return (
@@ -37,14 +39,14 @@ export default function LegalHelpModal({ isOpen, onClose, isDark }) {
           </div>
           <div>
             <h2 className="text-xl font-bold tracking-tight">
-              Free Legal Help & Citizen Rights
+              {t('legalAidTitle')}
             </h2>
             <p
               className={`text-xs ${
                 isDark ? 'text-slate-400' : 'text-slate-500'
               }`}
             >
-              Statutory legal aid resources under Article 39A of the Indian Constitution
+              {t('legalAidSubtitle')}
             </p>
           </div>
         </div>

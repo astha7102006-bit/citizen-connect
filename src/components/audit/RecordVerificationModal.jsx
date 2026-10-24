@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { verifyComplaintAuditChain, GENESIS_HASH } from '../../services/auditCrypto';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function RecordVerificationModal({ complaint, isOpen, onClose }) {
   const { role, isAuthenticated } = useAuth();
+  const { t } = useLanguage();
   const { tamperComplaintRecord, restoreComplaintRecord, verifyRealComplaintTimeline } = useData();
 
   const [verifying, setVerifying] = useState(false);
@@ -103,11 +105,11 @@ export default function RecordVerificationModal({ complaint, isOpen, onClose }) 
                 🔗
               </span>
               <h2 className="text-xl font-bold text-foreground">
-                Cryptographic Chain & Record Verification
+                {t('modalVerifyTitle')}
               </h2>
             </div>
             <p className="text-xs text-foreground/60 mt-1">
-              Deterministic SHA-256 append-only ledger for Complaint{' '}
+              {t('modalVerifySubtitle')} —{' '}
               <span className="font-mono font-bold text-primary">{complaint.id}</span>
             </p>
           </div>

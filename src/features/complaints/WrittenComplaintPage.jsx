@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useData } from '../../context/DataContext';
+import { useLanguage } from '../../context/LanguageContext';
 import AiDraftReviewCard from './AiDraftReviewCard';
 
 const CATEGORIES = [
@@ -24,6 +25,7 @@ const DEPARTMENTS = [
 
 export default function WrittenComplaintPage() {
   const { submitComplaint, addSupplementalCorrection } = useData();
+  const { t } = useLanguage();
 
   // Form State
   const [formData, setFormData] = useState({

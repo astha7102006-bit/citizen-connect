@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { AlertTriangle, Phone, ShieldAlert, X } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function EmergencyBanner() {
   const [showHelplineModal, setShowHelplineModal] = useState(false);
+  const { t } = useLanguage();
 
   return (
     <>
@@ -20,7 +22,7 @@ export default function EmergencyBanner() {
             </span>
             <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-300 flex-shrink-0" />
             <span className="truncate">
-              <strong>Emergency Notice:</strong> If you are in danger right now, call <strong className="text-amber-200">112</strong>.
+              <strong>{t('emergencyNotice')}</strong> {t('emergencyCall112')}
             </span>
           </div>
 
@@ -31,14 +33,14 @@ export default function EmergencyBanner() {
               className="inline-flex items-center space-x-1 bg-white text-red-700 font-bold px-2.5 py-0.5 rounded-full hover:bg-amber-100 transition-colors shadow-sm"
             >
               <Phone className="w-3 h-3 fill-current" />
-              <span>Call 112</span>
+              <span>{t('call112Btn')}</span>
             </a>
             <button
               onClick={() => setShowHelplineModal(true)}
               className="hidden md:inline-flex items-center space-x-1 underline hover:text-amber-200 cursor-pointer"
             >
               <ShieldAlert className="w-3 h-3" />
-              <span>More Helplines</span>
+              <span>{t('moreHelplines')}</span>
             </button>
           </div>
         </div>
@@ -59,8 +61,8 @@ export default function EmergencyBanner() {
                 <Phone className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-lg font-bold">National Emergency Helplines</h3>
-                <p className="text-xs text-slate-400">All India 24x7 Toll-Free Emergency Response</p>
+                <h3 className="text-lg font-bold">{t('emergencyModalTitle')}</h3>
+                <p className="text-xs text-slate-400">{t('emergencyModalSubtitle')}</p>
               </div>
             </div>
 
@@ -70,8 +72,8 @@ export default function EmergencyBanner() {
                 className="flex items-center justify-between p-3 rounded-xl bg-red-950/60 border border-red-500/40 hover:bg-red-900/60"
               >
                 <div>
-                  <div className="font-bold text-amber-300">National Emergency Number</div>
-                  <div className="text-xs text-slate-300">Police, Fire, Ambulance (ERSS)</div>
+                  <div className="font-bold text-amber-300">{t('helpline112Title')}</div>
+                  <div className="text-xs text-slate-300">{t('helpline112Desc')}</div>
                 </div>
                 <span className="text-base font-extrabold text-white px-3 py-1 rounded-lg bg-red-600">112</span>
               </a>
@@ -81,8 +83,8 @@ export default function EmergencyBanner() {
                 className="flex items-center justify-between p-3 rounded-xl bg-slate-800/80 border border-slate-700 hover:bg-slate-700/80"
               >
                 <div>
-                  <div className="font-bold text-slate-200">Women Helpline (24x7)</div>
-                  <div className="text-xs text-slate-400">National Commission for Women</div>
+                  <div className="font-bold text-slate-200">{t('helpline1091Title')}</div>
+                  <div className="text-xs text-slate-400">{t('helpline1091Desc')}</div>
                 </div>
                 <span className="text-base font-bold text-white px-3 py-1 rounded-lg bg-slate-700">1091</span>
               </a>
@@ -92,8 +94,8 @@ export default function EmergencyBanner() {
                 className="flex items-center justify-between p-3 rounded-xl bg-slate-800/80 border border-slate-700 hover:bg-slate-700/80"
               >
                 <div>
-                  <div className="font-bold text-slate-200">Cyber Crime Helpline</div>
-                  <div className="text-xs text-slate-400">Financial fraud & cyber threats</div>
+                  <div className="font-bold text-slate-200">{t('helpline1930Title')}</div>
+                  <div className="text-xs text-slate-400">{t('helpline1930Desc')}</div>
                 </div>
                 <span className="text-base font-bold text-white px-3 py-1 rounded-lg bg-slate-700">1930</span>
               </a>
@@ -103,8 +105,8 @@ export default function EmergencyBanner() {
                 className="flex items-center justify-between p-3 rounded-xl bg-slate-800/80 border border-slate-700 hover:bg-slate-700/80"
               >
                 <div>
-                  <div className="font-bold text-slate-200">Anti-Corruption Bureau (ACB)</div>
-                  <div className="text-xs text-slate-400">Central Vigilance / Lokayukta</div>
+                  <div className="font-bold text-slate-200">{t('helpline1064Title')}</div>
+                  <div className="text-xs text-slate-400">{t('helpline1064Desc')}</div>
                 </div>
                 <span className="text-base font-bold text-white px-3 py-1 rounded-lg bg-slate-700">1064</span>
               </a>
@@ -114,8 +116,8 @@ export default function EmergencyBanner() {
                 className="flex items-center justify-between p-3 rounded-xl bg-slate-800/80 border border-slate-700 hover:bg-slate-700/80"
               >
                 <div>
-                  <div className="font-bold text-slate-200">NALSA Free Legal Aid</div>
-                  <div className="text-xs text-slate-400">Statutory free legal assistance</div>
+                  <div className="font-bold text-slate-200">{t('helpline15100Title')}</div>
+                  <div className="text-xs text-slate-400">{t('helpline15100Desc')}</div>
                 </div>
                 <span className="text-base font-bold text-white px-3 py-1 rounded-lg bg-purple-700">15100</span>
               </a>

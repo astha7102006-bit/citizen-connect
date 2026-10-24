@@ -11,8 +11,10 @@ import {
   ShieldAlert,
   FileCheck,
 } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function TrackStatusModal({ isOpen, onClose, isDark, initialId = '' }) {
+  const { t } = useLanguage();
   const [complaintId, setComplaintId] = useState(initialId || 'CC-2026-DL-28491');
   const [searchedRecord, setSearchedRecord] = useState({
     id: 'CC-2026-DL-28491',
@@ -31,24 +33,24 @@ export default function TrackStatusModal({ isOpen, onClose, isDark, initialId = 
 
   const stages = [
     {
-      title: 'Level 1: Grievance Officer',
-      desc: 'Complaint assigned to local ward officer. Time limit: 7 days.',
-      time: 'Day 1 - 7',
+      title: t('trackStage1Title'),
+      desc: t('trackStage1Desc'),
+      time: t('trackStage1Window'),
     },
     {
-      title: 'Level 2: First Appellate Authority',
-      desc: 'Automatic escalation triggered if unresolved in 7 days.',
-      time: 'Day 8 - 15',
+      title: t('trackStage2Title'),
+      desc: t('trackStage2Desc'),
+      time: t('trackStage2Window'),
     },
     {
-      title: 'Level 3: Vigilance Commission / Lokayukta',
-      desc: 'Independent anti-corruption review with binding penalty powers.',
-      time: 'Day 16 - 30',
+      title: t('trackStage3Title'),
+      desc: t('trackStage3Desc'),
+      time: t('trackStage3Window'),
     },
     {
-      title: 'Final Action & Redressal',
-      desc: 'Public compliance report filed and statutory redress completed.',
-      time: 'Completed',
+      title: t('trackStage4Title'),
+      desc: t('trackStage4Desc'),
+      time: t('trackStage4Window'),
     },
   ];
 
