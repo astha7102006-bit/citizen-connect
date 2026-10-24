@@ -280,3 +280,45 @@ describe('requireRole middleware', () => {
     expect(next).not.toHaveBeenCalled();
   });
 });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 6. JSON Response & Error Envelope Integrity
+// ══════════════════════════════════════════════════════════════════════════════
+describe('API Response Envelope & Error Integrity', () => {
+  it('sendSuccess returns valid JSON structure with data', async () => {
+    const { sendSuccess } = await import('../utils/response.js');
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn().mockReturnThis(),
+    };
+
+    sendSuccess(res, { user: { id: 'u1' } }, { status: 200 });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: true,
+        data: { user: { id: 'u1' } },
+      })
+    );
+  });
+
+  it('sendError returns valid JSON structure with error code and message', async () => {
+    const { sendError } = await import('../utils/response.js');
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn().mockReturnThis(),
+    };
+
+    sendError(res, 'Invalid credentials provided.', { status: 401, code: 'INVALID_CREDENTIALS' });
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        error: {
+          code: 'INVALID_CREDENTIALS',
+          message: 'Invalid credentials provided.',
+        },
+      })
+    );
+  });
+});

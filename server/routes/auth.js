@@ -16,18 +16,18 @@ import { sendSuccess, sendError } from '../utils/response.js';
 
 const router = Router();
 
-// ── Rate limiter — 10 requests per 15 minutes per IP ──────────────────────────
+// ── Rate limiter — 50 requests per 15 minutes per IP (generous in development) ──
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10,
+  max: process.env.NODE_ENV === 'test' ? 1000 : 50,
   standardHeaders: true,
   legacyHeaders: false,
-  message: {
-    success: false,
-    error: {
-      code: 'RATE_LIMITED',
-      message: 'Too many requests. Please wait 15 minutes before trying again.',
-    },
+  handler: (_req, res) => {
+    return sendError(
+      res,
+      'Too many authentication attempts. Please wait 15 minutes before trying again.',
+      { status: 429, code: 'RATE_LIMITED' }
+    );
   },
   skipSuccessfulRequests: false,
 });
@@ -116,15 +116,23 @@ router.post('/login', authLimiter, async (req, res, next) => {
 
     const user = await loginUser({ email, password });
 
-    // Regenerate session ID on login to prevent fixation attacks
-    req.session.regenerate((err) => {
-      if (err) return next(err);
+    // Regenerate session ID on login to prevent fixation attacks (when available)
+    if (typeof req.session?.regenerate === 'function') {
+      req.session.regenerate((err) => {
+        if (err) return next(err);
 
-      req.session.userId = user.id;
-      req.session.role   = user.role;
+        req.session.userId = user.id;
+        req.session.role   = user.role;
 
+        return sendSuccess(res, { user });
+      });
+    } else {
+      if (req.session) {
+        req.session.userId = user.id;
+        req.session.role   = user.role;
+      }
       return sendSuccess(res, { user });
-    });
+    }
   } catch (err) {
     if (err.code === 'INVALID_CREDENTIALS') {
       return sendError(res, err.message, { status: 401, code: 'INVALID_CREDENTIALS' });

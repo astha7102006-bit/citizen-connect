@@ -28,22 +28,94 @@ const AuthContext = createContext();
 // ── API helpers ────────────────────────────────────────────────────────────────
 const BASE = '/api/auth';
 
-async function apiFetch(path, options = {}) {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include', // Send/receive session cookies
-    ...options,
-  });
-  const json = await res.json();
+/**
+ * Safely parses API responses, handling empty bodies, HTML error pages, and network failures.
+ * Guarantees that syntax errors like "Unexpected end of JSON input" never bubble up to the UI.
+ */
+async function safeParseResponse(res) {
+  let text = '';
+  try {
+    text = await res.text();
+  } catch {
+    text = '';
+  }
+
+  let json = null;
+  if (text && text.trim().length > 0) {
+    try {
+      json = JSON.parse(text);
+    } catch {
+      json = null;
+    }
+  }
+
   if (!res.ok) {
-    const err = new Error(
-      json?.error?.message ?? `Request failed with status ${res.status}`
-    );
-    err.code = json?.error?.code ?? 'UNKNOWN';
+    if (json?.error?.message) {
+      const err = new Error(json.error.message);
+      err.code = json.error.code ?? 'API_ERROR';
+      err.status = res.status;
+      throw err;
+    }
+
+    if (res.status === 502 || res.status === 503 || res.status === 504) {
+      const err = new Error(
+        'The backend server is temporarily unavailable. Please verify the API server is running on port 4000.'
+      );
+      err.code = 'SERVICE_UNAVAILABLE';
+      err.status = res.status;
+      throw err;
+    }
+
+    if (res.status === 404) {
+      const err = new Error('The requested authentication endpoint was not found.');
+      err.code = 'NOT_FOUND';
+      err.status = 404;
+      throw err;
+    }
+
+    const message =
+      json?.message ||
+      (text && text.length < 150 && !text.includes('<')
+        ? text.trim()
+        : `Authentication failed (HTTP ${res.status}).`);
+
+    const err = new Error(message);
+    err.code = json?.code ?? 'REQUEST_FAILED';
     err.status = res.status;
     throw err;
   }
+
+  if (!json) {
+    if (!text || text.trim().length === 0) {
+      return { success: true, data: {} };
+    }
+    const err = new Error('Server returned an unexpected non-JSON response.');
+    err.code = 'PARSE_ERROR';
+    err.status = res.status;
+    throw err;
+  }
+
   return json;
+}
+
+async function apiFetch(path, options = {}) {
+  let res;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include', // Send/receive session cookies
+      ...options,
+    });
+  } catch (netErr) {
+    const err = new Error(
+      'Unable to connect to the backend server. Please ensure the backend is running on port 4000.'
+    );
+    err.code = 'NETWORK_ERROR';
+    err.cause = netErr;
+    throw err;
+  }
+
+  return safeParseResponse(res);
 }
 
 // ── Provider ───────────────────────────────────────────────────────────────────

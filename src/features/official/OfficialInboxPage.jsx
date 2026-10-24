@@ -34,18 +34,43 @@ import {
 const STAFF_API = '/api/staff';
 
 async function apiFetch(path, options = {}) {
-  const res = await fetch(`${STAFF_API}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    ...options,
-  });
-  const json = await res.json();
+  let res;
+  try {
+    res = await fetch(`${STAFF_API}${path}`, {
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      ...options,
+    });
+  } catch (_netErr) {
+    const err = new Error('Unable to connect to the server. Please ensure the backend API is running on port 4000.');
+    err.status = 503;
+    throw err;
+  }
+
+  let text = '';
+  try {
+    text = await res.text();
+  } catch {
+    text = '';
+  }
+
+  let json = null;
+  if (text && text.trim().length > 0) {
+    try {
+      json = JSON.parse(text);
+    } catch {
+      json = null;
+    }
+  }
+
   if (!res.ok) {
-    const err = new Error(json?.error?.message ?? `Request failed ${res.status}`);
+    const message = json?.error?.message ?? json?.message ?? (res.status === 503 ? 'Backend server is offline.' : `Request failed with status ${res.status}`);
+    const err = new Error(message);
     err.status = res.status;
     throw err;
   }
-  return json;
+
+  return json ?? { success: true, data: {} };
 }
 
 /** Maps a DB complaint (from /api/staff/complaints) to the shape OfficialInboxPage uses */
