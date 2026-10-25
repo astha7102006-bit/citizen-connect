@@ -1,28 +1,67 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getTranslation, LANGUAGES } from '../i18n/translations';
 
 const LanguageContext = createContext();
 
 export function LanguageProvider({ children }) {
-  const [currentLang, setCurrentLang] = useState(() => {
+  const [currentLang, setCurrentLangState] = useState(() => {
     if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      const langParam = urlParams.get('lang');
-      if (langParam) return langParam;
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const langParam = urlParams.get('lang');
+        if (langParam && LANGUAGES.some((l) => l.code === langParam)) {
+          return langParam;
+        }
 
-      const saved = localStorage.getItem('citizenconnect_lang');
-      if (saved) return saved;
+        const saved = localStorage.getItem('citizenconnect_lang');
+        if (saved && LANGUAGES.some((l) => l.code === saved)) {
+          return saved;
+        }
+      } catch (err) {
+        console.warn('Language initialization error:', err);
+      }
     }
     return 'en';
   });
 
+  const setCurrentLang = useCallback((langCode) => {
+    if (!langCode || typeof langCode !== 'string') return;
+    const cleanCode = langCode.trim();
+    if (!LANGUAGES.some((l) => l.code === cleanCode)) return;
+
+    setCurrentLangState(cleanCode);
+
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('citizenconnect_lang', cleanCode);
+        document.documentElement.lang = cleanCode;
+
+        // Keep URL parameter in sync if present
+        const url = new URL(window.location.href);
+        if (url.searchParams.has('lang')) {
+          url.searchParams.set('lang', cleanCode);
+          window.history.replaceState({}, '', url.toString());
+        }
+      } catch (err) {
+        console.warn('Language persistence error:', err);
+      }
+    }
+  }, []);
+
   useEffect(() => {
-    localStorage.setItem('citizenconnect_lang', currentLang);
-    document.documentElement.lang = currentLang;
-    document.documentElement.dir = currentLang === 'ur' ? 'rtl' : 'ltr';
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('citizenconnect_lang', currentLang);
+        document.documentElement.lang = currentLang;
+        document.documentElement.dir = currentLang === 'ur' ? 'rtl' : 'ltr';
+      } catch (err) {
+        console.warn('Language effect persistence error:', err);
+      }
+    }
   }, [currentLang]);
 
-  const t = (key) => getTranslation(currentLang, key);
+  const t = useCallback((key, fallback) => getTranslation(currentLang, key, fallback), [currentLang]);
+  const isHi = currentLang === 'hi';
 
   const currentLangObj = LANGUAGES.find((l) => l.code === currentLang) || LANGUAGES[0];
 
@@ -33,6 +72,7 @@ export function LanguageProvider({ children }) {
         setCurrentLang,
         currentLangObj,
         t,
+        isHi,
         languages: LANGUAGES,
       }}
     >

@@ -409,17 +409,17 @@ export default function ComplaintWizardPage() {
     <div className="max-w-[1520px] mx-auto px-4 sm:px-8 lg:px-14 py-8">
       {/* Header */}
       <PageHeader
-        title="Citizen Grievance Submission Wizard"
-        subtitle="A guided step-by-step submission. Every complaint filed is anchored to autonomous statutory SLA escalation clocks and cryptographic audit trails."
-        badge={<Badge variant="saffron" dot>Anti-Vanishing Protocol Active</Badge>}
-        breadcrumbs={[{ label: 'Grievance Redressal' }, { label: 'Complaint Wizard' }]}
+        title={t('wizardTitle')}
+        subtitle={t('wizardSubtitle')}
+        badge={<Badge variant="saffron" dot>{t('feat3Title')}</Badge>}
+        breadcrumbs={[{ label: t('navHome') }, { label: t('navFileComplaint') }]}
         action={
           <Link
             to="/written-complaint"
             className="text-xs font-semibold text-[#0F4C81] dark:text-sky-300 hover:underline flex items-center gap-1.5"
           >
             <FileText className="w-3.5 h-3.5" />
-            <span>Switch to Written-Only Form →</span>
+            <span>Switch to Written Form →</span>
           </Link>
         }
         isDark={isDark}
@@ -429,17 +429,17 @@ export default function ComplaintWizardPage() {
       {currentStep < 10 && (
         <div className="mb-8 max-w-4xl mx-auto">
           <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-2">
-            <span>Step {currentStep} of 9</span>
+            <span>{t('wizardStep')} {currentStep} {t('wizardOf')} 9</span>
             <span>
-              {currentStep === 1 && 'Incident Category'}
-              {currentStep === 2 && 'Department & Office'}
-              {currentStep === 3 && 'Date & Location'}
-              {currentStep === 4 && 'Statement & Official Details'}
-              {currentStep === 5 && 'Confidential Witnesses'}
-              {currentStep === 6 && 'Evidence Upload'}
-              {currentStep === 7 && 'Audio Testimony'}
-              {currentStep === 8 && 'Voice Input Tools'}
-              {currentStep === 9 && 'Review & Verification'}
+              {currentStep === 1 && t('wizardStep1')}
+              {currentStep === 2 && t('wizardStep2')}
+              {currentStep === 3 && t('wizardStep3')}
+              {currentStep === 4 && t('wizardStep4')}
+              {currentStep === 5 && t('wizardStep5')}
+              {currentStep === 6 && t('wizardStep6')}
+              {currentStep === 7 && t('wizardStep7')}
+              {currentStep === 8 && t('wizardStep8')}
+              {currentStep === 9 && t('wizardStep9')}
             </span>
           </div>
 
@@ -1349,7 +1349,7 @@ export default function ComplaintWizardPage() {
 
             <div className="flex justify-between pt-4 border-t border-slate-200/50 dark:border-slate-700/50">
               <Button variant="outline" onClick={handleBack} icon={ChevronLeft}>
-                Back
+                {t('wizardPrev')}
               </Button>
               <Button
                 variant="primary"
@@ -1357,7 +1357,7 @@ export default function ComplaintWizardPage() {
                 onClick={handleFinalSubmit}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? 'Registering Immutable Case File...' : 'Submit Grievance with Statutory Escalation Guarantee →'}
+                {isSubmitting ? 'Registering...' : `${t('wizardSubmit')} →`}
               </Button>
             </div>
           </GlassCard>

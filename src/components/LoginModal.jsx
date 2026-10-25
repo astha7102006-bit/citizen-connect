@@ -24,10 +24,12 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 // ── Sub-component: Real Email/Password Auth ────────────────────────────────────
 function RealAuthForm({ isDark, onSuccess }) {
   const { login, register } = useAuth();
+  const { t } = useLanguage();
 
   const [mode, setMode]           = useState('login'); // 'login' | 'register'
   const [name, setName]           = useState('');
@@ -78,7 +80,9 @@ function RealAuthForm({ isDark, onSuccess }) {
         <div>
           <h3 className="text-lg font-bold">Welcome, {success.name}!</h3>
           <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-            {mode === 'register' ? 'Account created successfully.' : 'Signed in successfully.'}
+            {mode === 'register'
+              ? 'Account created! Please verify your email before logging in.'
+              : 'Signed in successfully.'}
           </p>
         </div>
       </div>
@@ -100,7 +104,7 @@ function RealAuthForm({ isDark, onSuccess }) {
               : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          Sign In
+          {t('authSignIn')}
         </button>
         <button
           type="button"
@@ -111,14 +115,14 @@ function RealAuthForm({ isDark, onSuccess }) {
               : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          Register
+          {t('authCreateAccount')}
         </button>
       </div>
 
       {/* Name (register only) */}
       {mode === 'register' && (
         <div>
-          <label className={labelClass}>Full Name</label>
+          <label className={labelClass}>{t('authFullName')}</label>
           <div className={wrapClass}>
             <User className="w-4 h-4 text-slate-400 mr-2.5" />
             <input
@@ -126,7 +130,7 @@ function RealAuthForm({ isDark, onSuccess }) {
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Your full name"
+              placeholder={t('authNamePlaceholder')}
               className={inputClass}
             />
           </div>
@@ -135,7 +139,7 @@ function RealAuthForm({ isDark, onSuccess }) {
 
       {/* Email */}
       <div>
-        <label className={labelClass}>Email Address</label>
+        <label className={labelClass}>{t('authEmail')}</label>
         <div className={wrapClass}>
           <Mail className="w-4 h-4 text-slate-400 mr-2.5" />
           <input
@@ -143,7 +147,7 @@ function RealAuthForm({ isDark, onSuccess }) {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
+            placeholder={t('authEmailPlaceholder')}
             className={inputClass}
             autoComplete={mode === 'login' ? 'email' : 'off'}
           />
@@ -152,7 +156,7 @@ function RealAuthForm({ isDark, onSuccess }) {
 
       {/* Password */}
       <div>
-        <label className={labelClass}>Password</label>
+        <label className={labelClass}>{t('authPassword')}</label>
         <div className={wrapClass}>
           <Lock className="w-4 h-4 text-slate-400 mr-2.5" />
           <input
@@ -160,7 +164,7 @@ function RealAuthForm({ isDark, onSuccess }) {
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder={mode === 'register' ? 'Min. 8 characters' : 'Your password'}
+            placeholder={mode === 'register' ? t('authPassPlaceholder') : t('authPassword')}
             className={`${inputClass} flex-1`}
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
           />
@@ -189,13 +193,13 @@ function RealAuthForm({ isDark, onSuccess }) {
           <Loader2 className="w-4 h-4 animate-spin" />
         ) : mode === 'login' ? (
           <>
-            <span>Sign In Securely</span>
+            <span>{t('authSignInBtn')}</span>
             <ArrowRight className="w-4 h-4" />
           </>
         ) : (
           <>
             <UserPlus className="w-4 h-4" />
-            <span>Create Citizen Account</span>
+            <span>{t('authRegisterBtn')}</span>
           </>
         )}
       </button>
@@ -261,6 +265,7 @@ function RealAuthForm({ isDark, onSuccess }) {
 
 // ── Sub-component: Demo Phone OTP Flow (ORIGINAL — unchanged) ──────────────────
 function DemoOtpForm({ isDark, onClose, onSuccess }) {
+  const { t } = useLanguage();
   const [phone, setPhone]               = useState('');
   const [otpSent, setOtpSent]           = useState(false);
   const [otp, setOtp]                   = useState('');
@@ -395,6 +400,7 @@ function DemoOtpForm({ isDark, onClose, onSuccess }) {
 // ── Main Modal ─────────────────────────────────────────────────────────────────
 export default function LoginModal({ isOpen, onClose, onSuccess, isDark }) {
   const [tab, setTab] = useState('real'); // 'real' | 'demo'
+  const { t } = useLanguage();
 
   const handleSuccess = () => {
     if (onSuccess) {
@@ -428,9 +434,9 @@ export default function LoginModal({ isOpen, onClose, onSuccess, isDark }) {
             <User className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-xl font-bold tracking-tight">Citizen Portal</h2>
+            <h2 className="text-xl font-bold tracking-tight">{t('navCitizenDashboard')}</h2>
             <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Secure login · CitizenConnect
+              CitizenConnect · {t('platformSubtitle')}
             </p>
           </div>
         </div>
@@ -446,7 +452,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess, isDark }) {
                 : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            Email / Password
+            {t('authEmailPasswordTab')}
           </button>
           <button
             type="button"
@@ -457,7 +463,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess, isDark }) {
                 : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            Demo OTP
+            {t('authDemoOtpTab')}
           </button>
         </div>
 

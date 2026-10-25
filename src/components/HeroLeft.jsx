@@ -8,15 +8,22 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { getTranslation } from '../i18n/translations';
+import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
 
 export default function HeroLeft({
-  isDark,
-  currentLang = 'en',
+  isDark: propIsDark,
+  currentLang: propCurrentLang,
   onOpenFileComplaint,
   onOpenTrack,
   onOpenLegal,
   onOpenLearnMore,
 }) {
+  const { isDark: contextIsDark } = useTheme();
+  const { currentLang: contextLang, t } = useLanguage();
+
+  const isDark = propIsDark !== undefined ? propIsDark : contextIsDark;
+  const currentLang = propCurrentLang || contextLang || 'en';
   const features = [
     {
       title: getTranslation(currentLang, 'feat1Title'),

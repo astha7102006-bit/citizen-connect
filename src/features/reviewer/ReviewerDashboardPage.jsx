@@ -6,6 +6,7 @@ import Badge from '../../components/common/Badge';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { DEMO_ROLES } from '../../services/dataShaping';
 import RecordVerificationModal from '../../components/audit/RecordVerificationModal';
 import AccountabilityTimeline from '../../components/timeline/AccountabilityTimeline';
@@ -162,6 +163,7 @@ const FLAG_ICON_COLOR = {
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function ReviewerDashboardPage() {
   const { isDark } = useTheme();
+  const { t } = useLanguage();
   const { user } = useAuth();
   const {
     getComplaintsForRole,
@@ -309,10 +311,10 @@ export default function ReviewerDashboardPage() {
       </div>
 
       <PageHeader
-        title="Oversight Reviewer Console — Independent Vigilance & Appellate Authority"
-        subtitle="Unrestricted investigation oversight. Review raw complainant files, verify cryptographic evidence hashes, protect whistleblowers, and enforce statutory deadlines."
-        badge={<Badge variant="purple" dot>Reviewer Privilege Active</Badge>}
-        breadcrumbs={[{ label: 'Oversight Authority' }, { label: 'Review Workbench' }]}
+        title={t('reviewerTitle')}
+        subtitle={t('reviewerSubtitle')}
+        badge={<Badge variant="purple" dot>{t('roleReviewer')}</Badge>}
+        breadcrumbs={[{ label: t('navScreens') }, { label: t('navReviewerDashboard') }]}
         isDark={isDark}
       />
 

@@ -38,30 +38,53 @@ Phase 3 adds real, server-managed authentication and role-based access control t
 ## API Endpoints
 
 ### `POST /api/auth/register`
-- Rate limited: 10 req / 15 min
-- Validates: name (2–100 chars), email (RFC-ish regex), password (≥8 chars)
+- Rate limited: 5 req / 15 min (slow registration guard against bot farms)
+- Validates: name (2–100 chars), email (RFC-ish regex), password (8–128 chars)
 - Normalises email to lowercase
 - Role is **always** forced to `CITIZEN` — client-supplied roles are ignored
 - Hashes password with bcryptjs (work factor: 12)
-- Creates session on success; returns 201 with sanitised user
+- Regenerates session ID to prevent session fixation attacks
+- Saves session to persistent store before sending HTTP response
+- Returns 201 with sanitised user
 
 ### `POST /api/auth/login`
-- Rate limited: 10 req / 15 min
-- Validates email + password presence
+- Rate limited: 10 req / 15 min (brute-force defense)
+- Validates email + password presence and max-length (DoS prevention)
 - Uses same generic error for wrong email AND wrong password (prevents enumeration)
 - Uses timing-safe dummy bcrypt compare when email not found
 - Regenerates session ID on success (prevents fixation)
+- Persists session to PostgreSQL store before response
 - Returns 200 with sanitised user and `cc.sid` HTTP-only cookie
 
 ### `POST /api/auth/logout`
 - Requires valid session (`requireAuth`)
-- Destroys session and clears `cc.sid` cookie
+- Destroys session in store and clears `cc.sid` cookie with matching security flags
 - Returns 200 with confirmation message
 
 ### `GET /api/auth/me`
 - Requires valid session (`requireAuth`)
 - Returns sanitised current user from database (re-fetches on every request)
 - Returns 401 if not logged in
+
+### `POST /api/auth/forgot-password`
+- Rate limited: 3 req / 15 min
+- Generic response: never confirms or denies whether email address exists
+- Stores SHA-256 hash of single-use token with expiration
+
+### `POST /api/auth/reset-password`
+- Rate limited: 3 req / 15 min
+- Validates single-use token against SHA-256 hash
+- Enforces password policy (8–128 characters)
+- Invalidates token immediately upon use and clears existing sessions
+
+### `POST /api/auth/verify-email`
+- Validates single-use token against SHA-256 hash
+- Sets `emailVerifiedAt` timestamp and invalidates token
+
+### `POST /api/auth/resend-verify`
+- Requires authenticated session (`requireAuth`)
+- Rate limited: 3 req / 15 min
+- Re-generates single-use verification token hash and sends verification link
 
 ---
 

@@ -28,27 +28,20 @@ const AuthContext = createContext();
 // ── API helpers ────────────────────────────────────────────────────────────────
 const BASE = '/api/auth';
 
-async function apiFetch(path, options = {}) {
-  let res;
+/**
+ * Safely parses API responses, handling empty bodies, HTML error pages, and network failures.
+ * Guarantees that syntax errors like "Unexpected end of JSON input" never bubble up to the UI.
+ */
+async function safeParseResponse(res) {
+  let text = '';
   try {
-    res = await fetch(`${BASE}${path}`, {
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include', // Send/receive session cookies
-      ...options,
-    });
-  } catch (_networkErr) {
-    const err = new Error('Unable to connect to authentication server. Please check your network connection.');
-    err.code = 'NETWORK_ERROR';
-    err.status = 0;
-    throw err;
+    text = await res.text();
+  } catch {
+    text = '';
   }
 
-  // Safely read response text first to handle empty bodies or non-JSON payloads
-  const text = await res.text();
   let json = null;
-  const contentType = res.headers.get('content-type') || '';
-
-  if (text && (contentType.includes('application/json') || text.trim().startsWith('{') || text.trim().startsWith('['))) {
+  if (text && text.trim().length > 0) {
     try {
       json = JSON.parse(text);
     } catch {
@@ -57,28 +50,83 @@ async function apiFetch(path, options = {}) {
   }
 
   if (!res.ok) {
-    let message;
     if (json?.error?.message) {
-      message = json.error.message;
-    } else if (res.status === 502 || res.status === 503 || res.status === 504) {
-      message = 'Authentication service is temporarily unavailable. Please verify the API server is running.';
-    } else if (res.status === 401) {
-      message = 'Invalid email or password.';
-    } else if (res.status === 400) {
-      message = 'Invalid request. Please check your input.';
-    } else if (res.status === 404) {
-      message = 'Requested authentication endpoint was not found.';
-    } else {
-      message = `Authentication request failed (HTTP ${res.status}).`;
+      const err = new Error(json.error.message);
+      err.code = json.error.code ?? 'API_ERROR';
+      err.status = res.status;
+      throw err;
     }
 
+    if (res.status === 502 || res.status === 503 || res.status === 504) {
+      const err = new Error(
+        'Authentication service is temporarily unavailable. Please verify the API server is running.'
+      );
+      err.code = 'SERVICE_UNAVAILABLE';
+      err.status = res.status;
+      throw err;
+    }
+
+    if (res.status === 401) {
+      const err = new Error('Invalid email or password.');
+      err.code = 'UNAUTHORIZED';
+      err.status = 401;
+      throw err;
+    }
+
+    if (res.status === 400) {
+      const err = new Error(json?.message || 'Invalid request. Please check your input.');
+      err.code = 'VALIDATION_ERROR';
+      err.status = 400;
+      throw err;
+    }
+
+    if (res.status === 404) {
+      const err = new Error('Requested authentication endpoint was not found.');
+      err.code = 'NOT_FOUND';
+      err.status = 404;
+      throw err;
+    }
+
+    const message =
+      json?.message ||
+      (text && text.length < 150 && !text.includes('<')
+        ? text.trim()
+        : `Authentication failed (HTTP ${res.status}).`);
+
     const err = new Error(message);
-    err.code = json?.error?.code ?? (res.status === 502 || res.status === 504 ? 'SERVICE_UNAVAILABLE' : 'API_ERROR');
+    err.code = json?.code ?? 'REQUEST_FAILED';
     err.status = res.status;
     throw err;
   }
 
-  return json ?? { success: true };
+  if (!json) {
+    if (!text || text.trim().length === 0) {
+      return { success: true, data: {} };
+    }
+    return { success: true, data: {}, text };
+  }
+
+  return json;
+}
+
+async function apiFetch(path, options = {}) {
+  let res;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include', // Send/receive session cookies
+      ...options,
+    });
+  } catch (netErr) {
+    const err = new Error(
+      'Unable to connect to the backend server. Please ensure the backend is running on port 4000.'
+    );
+    err.code = 'NETWORK_ERROR';
+    err.cause = netErr;
+    throw err;
+  }
+
+  return safeParseResponse(res);
 }
 
 // ── Provider ───────────────────────────────────────────────────────────────────
@@ -97,31 +145,62 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(async ({ email, password }) => {
+    setAuthLoading(true);
     setAuthError(null);
-    const json = await apiFetch('/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
-    setRealUser(json.data?.user ?? null);
-    return json.data?.user;
+    try {
+      const json = await apiFetch('/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      setRealUser(json.data?.user ?? null);
+      setAuthError(null);
+      return json.data?.user;
+    } catch (err) {
+      setRealUser(null);
+      const safeMessage = err.message || 'Authentication failed. Please check your credentials.';
+      setAuthError(safeMessage);
+      throw err;
+    } finally {
+      setAuthLoading(false);
+    }
   }, []);
 
   const register = useCallback(async ({ name, email, password, phone }) => {
+    setAuthLoading(true);
     setAuthError(null);
-    const json = await apiFetch('/register', {
-      method: 'POST',
-      body: JSON.stringify({ name, email, password, phone }),
-    });
-    setRealUser(json.data?.user ?? null);
-    return json.data?.user;
+    try {
+      const json = await apiFetch('/register', {
+        method: 'POST',
+        body: JSON.stringify({ name, email, password, phone }),
+      });
+      setRealUser(null);
+      setAuthError(null);
+      return json.data?.user;
+    } catch (err) {
+      setRealUser(null);
+      const safeMessage = err.message || 'Registration failed. Please check your details.';
+      setAuthError(safeMessage);
+      throw err;
+    } finally {
+      setAuthLoading(false);
+    }
   }, []);
 
   const logout = useCallback(async () => {
+    setAuthLoading(true);
+    setAuthError(null);
     try {
       await apiFetch('/logout', { method: 'POST' });
+    } catch (err) {
+      console.warn('[Auth] Logout warning:', err.message);
     } finally {
       setRealUser(null);
+      setAuthLoading(false);
     }
+  }, []);
+
+  const clearAuthError = useCallback(() => {
+    setAuthError(null);
   }, []);
 
   // ── Demo role-switcher state (PRESERVED — do not remove) ─────────────────────
@@ -161,6 +240,7 @@ export function AuthProvider({ children }) {
         isAuthenticated: !!realUser,
         authLoading,        // true while checking session on mount
         authError,
+        clearAuthError,
         login,
         register,
         logout,

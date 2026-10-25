@@ -47,6 +47,8 @@ const makeDbUser = (overrides = {}) => ({
   passwordHash:  'hashed::Secret123!',
   role:          'CITIZEN',
   accountStatus: 'ACTIVE',
+  emailVerifiedAt: new Date('2026-01-01T00:00:00Z'),
+  sessionVersion: 1,
   createdAt:     new Date('2026-01-01T00:00:00Z'),
   updatedAt:     new Date('2026-01-01T00:00:00Z'),
   ...overrides,
@@ -222,6 +224,8 @@ describe('requireAuth middleware', () => {
       phone:         null,
       role:          'CITIZEN',
       accountStatus: 'ACTIVE',
+      emailVerified: true,
+      emailVerifiedAt: new Date('2026-01-01T00:00:00Z'),
       sessionVersion: 1,
       createdAt:     new Date('2026-01-01T00:00:00Z'),
       updatedAt:     new Date('2026-01-01T00:00:00Z'),
@@ -279,5 +283,47 @@ describe('requireRole middleware', () => {
     requireRole('OFFICIAL', 'ADMIN')(req, res, next);
     expect(res.status).toHaveBeenCalledWith(403);
     expect(next).not.toHaveBeenCalled();
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 6. JSON Response & Error Envelope Integrity
+// ══════════════════════════════════════════════════════════════════════════════
+describe('API Response Envelope & Error Integrity', () => {
+  it('sendSuccess returns valid JSON structure with data', async () => {
+    const { sendSuccess } = await import('../utils/response.js');
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn().mockReturnThis(),
+    };
+
+    sendSuccess(res, { user: { id: 'u1' } }, { status: 200 });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: true,
+        data: { user: { id: 'u1' } },
+      })
+    );
+  });
+
+  it('sendError returns valid JSON structure with error code and message', async () => {
+    const { sendError } = await import('../utils/response.js');
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn().mockReturnThis(),
+    };
+
+    sendError(res, 'Invalid credentials provided.', { status: 401, code: 'INVALID_CREDENTIALS' });
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        error: {
+          code: 'INVALID_CREDENTIALS',
+          message: 'Invalid credentials provided.',
+        },
+      })
+    );
   });
 });

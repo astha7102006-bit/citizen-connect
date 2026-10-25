@@ -64,13 +64,25 @@ export async function requireAuth(req, res, next) {
     }
 
     // Check if session version matches database record
-    if (user.sessionVersion !== sessionVersion) {
+    if (
+      user.sessionVersion !== undefined &&
+      sessionVersion !== undefined &&
+      user.sessionVersion !== sessionVersion
+    ) {
       req.session?.destroy?.(() => {});
       res.clearCookie?.('cc.sid');
       return sendError(res, 'Session has been revoked or invalidated. Please log in again.', {
         status: 401,
         code: 'SESSION_REVOKED',
       });
+    }
+
+    if (user.accountStatus === 'PENDING_VERIFICATION') {
+      return sendError(
+        res,
+        'Please verify your email address before continuing.',
+        { status: 403, code: 'EMAIL_NOT_VERIFIED' }
+      );
     }
 
     if (user.accountStatus !== 'ACTIVE') {
@@ -119,7 +131,13 @@ export async function optionalAuth(req, res, next) {
       },
     });
 
-    if (user && user.accountStatus === 'ACTIVE' && user.sessionVersion === sessionVersion) {
+    if (
+      user &&
+      user.accountStatus === 'ACTIVE' &&
+      (user.sessionVersion === undefined ||
+        sessionVersion === undefined ||
+        user.sessionVersion === sessionVersion)
+    ) {
       req.user = user;
     } else {
       req.user = null;

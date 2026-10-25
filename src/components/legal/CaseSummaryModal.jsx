@@ -14,9 +14,11 @@ import {
 } from 'lucide-react';
 import Button from '../common/Button';
 import Badge from '../common/Badge';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function CaseSummaryModal({ complaint, isOpen, onClose, isDark }) {
   const printRef = useRef(null);
+  const { t } = useLanguage();
 
   if (!isOpen || !complaint) return null;
 
@@ -36,9 +38,9 @@ export default function CaseSummaryModal({ complaint, isOpen, onClose, isDark })
           <div className="flex items-center gap-2">
             <Scale className="w-5 h-5 text-purple-600 dark:text-purple-400" />
             <h3 className="font-bold text-base text-slate-800 dark:text-white">
-              Print-Ready Case Summary Brief
+              {t('modalCaseSummaryTitle')}
             </h3>
-            <Badge variant="purple" size="sm">Legal Consultation Dossier</Badge>
+            <Badge variant="purple" size="sm">{t('navLegalHelp')}</Badge>
           </div>
           <div className="flex items-center gap-2">
             <Button

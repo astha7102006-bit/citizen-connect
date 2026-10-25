@@ -1,14 +1,22 @@
 import React, { useState } from 'react';
 import { Globe, X, Check, Search } from 'lucide-react';
 import { LANGUAGES, getTranslation } from '../i18n/translations';
+import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
 
 export default function LanguageModal({
   isOpen,
   onClose,
-  currentLang,
+  currentLang: propCurrentLang,
   onSelectLanguage,
-  isDark,
+  isDark: propIsDark,
 }) {
+  const { currentLang: contextLang, setCurrentLang } = useLanguage();
+  const { isDark: contextIsDark } = useTheme();
+
+  const currentLang = propCurrentLang || contextLang || 'en';
+  const isDark = propIsDark !== undefined ? propIsDark : contextIsDark;
+
   const [search, setSearch] = useState('');
 
   if (!isOpen) return null;
@@ -20,9 +28,25 @@ export default function LanguageModal({
       l.code.toLowerCase().includes(search.toLowerCase())
   );
 
+  const handleSelectLanguage = (langCode) => {
+    if (setCurrentLang) {
+      setCurrentLang(langCode);
+    }
+    if (typeof onSelectLanguage === 'function') {
+      onSelectLanguage(langCode);
+    }
+    if (typeof onClose === 'function') {
+      onClose();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm animate-in fade-in duration-200">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm animate-in fade-in duration-200"
+    >
       <div
+        onClick={(e) => e.stopPropagation()}
         className={`w-full max-w-xl max-h-[85vh] rounded-3xl p-6 sm:p-7 shadow-2xl relative border flex flex-col ${
           isDark
             ? 'bg-slate-900/95 border-sky-400/20 text-white'
@@ -31,8 +55,10 @@ export default function LanguageModal({
       >
         {/* Close Button */}
         <button
+          type="button"
           onClick={onClose}
           className="absolute top-5 right-5 p-2 rounded-full hover:bg-slate-500/20 text-slate-400 hover:text-white cursor-pointer"
+          aria-label="Close language selector"
         >
           <X className="w-5 h-5" />
         </button>
@@ -80,10 +106,8 @@ export default function LanguageModal({
             return (
               <button
                 key={lang.code}
-                onClick={() => {
-                  onSelectLanguage(lang.code);
-                  onClose();
-                }}
+                type="button"
+                onClick={() => handleSelectLanguage(lang.code)}
                 className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all duration-150 cursor-pointer ${
                   isSelected
                     ? isDark
@@ -120,6 +144,7 @@ export default function LanguageModal({
             Eighth Schedule of the Constitution of India
           </span>
           <button
+            type="button"
             onClick={onClose}
             className="btn-primary-gradient px-4 py-1.5 rounded-full text-white font-medium cursor-pointer"
           >

@@ -6,6 +6,7 @@ import Badge from '../../components/common/Badge';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { DEMO_ROLES } from '../../services/dataShaping';
 import { Link } from 'react-router-dom';
 import {
@@ -39,6 +40,7 @@ import {
 
 export default function PublicRecordsPage() {
   const { isDark } = useTheme();
+  const { t } = useLanguage();
   const { user } = useAuth();
   const { getComplaintsForRole, departments } = useData();
 
@@ -133,10 +135,10 @@ export default function PublicRecordsPage() {
 
       {/* 2. Page Header */}
       <PageHeader
-        title="Public Accountability Records & Open Redress Ledger"
-        subtitle="Search individual complaints by ID to inspect public-safe timelines, or review department accountability indicators. All published data is strictly scrubbed of personal identities."
-        badge={<Badge variant="success" dot>Open Public Ledger</Badge>}
-        breadcrumbs={[{ label: 'Public Transparency' }, { label: 'Accountability Ledger' }]}
+        title={t('transparencyTitle')}
+        subtitle={t('transparencySubtitle')}
+        badge={<Badge variant="success" dot>{t('rolePublic')}</Badge>}
+        breadcrumbs={[{ label: t('navScreens') }, { label: t('navPublicRecords') }]}
         action={
           <div className="flex items-center gap-2">
             <button

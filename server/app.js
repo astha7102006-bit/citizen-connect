@@ -3,6 +3,13 @@
  *
  * Wires together middleware, routes, and error handlers.
  * The HTTP server is created in index.js so this file stays testable.
+ *
+ * Security hardening:
+ * - Production refuses to start without PostgreSQL session store.
+ * - Trust proxy is limited to the configured topology (never blindly trusts all).
+ * - Session cookies are httpOnly, sameSite=strict in production, secure over HTTPS.
+ * - CSRF protection via enforced Origin/Referer validation on all state-changing routes.
+ * - CORS is restrictive: only configured origins, with credentials.
  */
 
 import express from 'express';
@@ -14,6 +21,7 @@ import connectPgSimple from 'connect-pg-simple';
 
 import { env } from './config/env.js';
 import { notFoundHandler, globalErrorHandler } from './middleware/errorHandler.js';
+import { csrfProtection } from './middleware/csrfProtection.js';
 import healthRouter from './routes/health.js';
 import authRouter from './routes/auth.js';
 import complaintsRouter from './routes/complaints.js';
@@ -23,19 +31,50 @@ import departmentsRouter from './routes/departments.js';
 
 const app = express();
 
+// ── Trust Proxy ───────────────────────────────────────────────────────────────
+// Only trust the explicitly configured number of hops; never blindly trust all.
+// TRUST_PROXY=0 → no proxy (default); TRUST_PROXY=1 → one reverse proxy (nginx/CloudFlare).
+if (env.TRUST_PROXY > 0) {
+  app.set('trust proxy', env.TRUST_PROXY);
+}
+
 // ── Session store (PostgreSQL via connect-pg-simple) ──────────────────────────
 const PgSession = connectPgSimple(session);
+const isProduction = env.NODE_ENV === 'production';
+const isTest = env.NODE_ENV === 'test';
 
 // Build a pg-compatible config from the DATABASE_URL for the session store
-const pgStoreConfig = env.DATABASE_URL
-  ? { conString: env.DATABASE_URL, createTableIfMissing: true }
-  : null;
+let sessionStore;
+if (env.DATABASE_URL && env.DATABASE_URL.trim() !== '') {
+  sessionStore = new PgSession({
+    conString: env.DATABASE_URL,
+    createTableIfMissing: true,
+    // Expired session cleanup every 1 hour
+    pruneSessionInterval: 60 * 60,
+    // Session table name (connect-pg-simple default: "session")
+    tableName: 'session',
+    // Cascade-proof: keep session for the full cookie lifetime
+    ttl: Math.ceil(env.SESSION_COOKIE_MAX_AGE / 1000),
+    // Error callback — log without crashing
+    errorLog: (err) => console.error('[SessionStore]', err.message),
+  });
+} else if (isProduction) {
+  // Production without DATABASE_URL is a misconfiguration — env.js already
+  // throws, so this branch is a belt-and-suspenders safety guard.
+  throw new Error(
+    '[SECURITY] PostgreSQL session store is required in production but DATABASE_URL is not set.'
+  );
+}
 
 // ── Security headers ──────────────────────────────────────────────────────────
 app.use(
   helmet({
     // Relax CSP in development so the Vite HMR overlay works
-    contentSecurityPolicy: env.NODE_ENV === 'production',
+    contentSecurityPolicy: isProduction,
+    // HSTS: enforce HTTPS for 1 year in production
+    hsts: isProduction
+      ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+      : false,
   })
 );
 
@@ -43,7 +82,7 @@ app.use(
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow server-to-server calls (no origin) and configured origins
+      // Allow server-to-server calls (no origin header) and configured origins
       if (!origin || env.CORS_ORIGINS.includes(origin)) {
         callback(null, true);
       } else {
@@ -63,15 +102,23 @@ app.use(
     secret: env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    store: pgStoreConfig ? new PgSession(pgStoreConfig) : undefined,
+    store: sessionStore,           // undefined → in-memory only in dev/test
     cookie: {
       httpOnly: true,
-      sameSite: 'lax',
-      secure: env.NODE_ENV === 'production',
+      // strict in production; lax in dev so cross-port works
+      sameSite: isProduction ? 'strict' : 'lax',
+      // Require HTTPS in production — session cookies must not travel over HTTP
+      secure: isProduction,
       maxAge: env.SESSION_COOKIE_MAX_AGE,
+      path: '/',
     },
+    rolling: false,  // Do not renew cookie on every response
   })
 );
+
+// ── CSRF Protection ───────────────────────────────────────────────────────────
+// Strict Origin & Referer validation on state-changing requests
+app.use(csrfProtection);
 
 // ── Request parsing ───────────────────────────────────────────────────────────
 // JSON body — 2 MB limit (upload endpoints will use multipart later)
@@ -80,13 +127,14 @@ app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
 // ── HTTP logging (with sensitive query parameter redaction) ───────────────────
-// Redact sensitive query parameters (token, password, secret, key) so they are never leaked in logs
 morgan.token('url', (req) => {
   const url = req.originalUrl || req.url || '';
   return url.replace(/([?&](?:token|password|secret|code|apiKey|auth)=)[^&]+/gi, '$1[REDACTED]');
 });
 
-if (env.NODE_ENV !== 'test') {
+if (!isTest) {
+  app.use(morgan(env.LOG_LEVEL));
+}
   app.use(morgan(env.LOG_LEVEL));
 }
 

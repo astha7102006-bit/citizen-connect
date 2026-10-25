@@ -40,9 +40,9 @@ export async function applySafeMigration() {
     ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "sessionVersion" INTEGER NOT NULL DEFAULT 1;
     ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "emailVerified" BOOLEAN NOT NULL DEFAULT false;
   `);
-  console.log('✓ users.sessionVersion and users.emailVerified columns verified');
+  console.log('✔ users.sessionVersion and users.emailVerified columns verified');
 
-  // Create password_reset_tokens table if not exists
+  // Verify password reset tokens table exists
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS "password_reset_tokens" (
       "id" TEXT NOT NULL,
@@ -58,9 +58,9 @@ export async function applySafeMigration() {
     CREATE INDEX IF NOT EXISTS "password_reset_tokens_userId_idx" ON "password_reset_tokens"("userId");
     CREATE INDEX IF NOT EXISTS "password_reset_tokens_expiresAt_idx" ON "password_reset_tokens"("expiresAt");
   `);
-  console.log('✓ password_reset_tokens table and indexes verified');
+  console.log('✔ password_reset_tokens table and indexes verified');
 
-  // Create email_verification_tokens table if not exists
+  // Verify email verification tokens table exists
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS "email_verification_tokens" (
       "id" TEXT NOT NULL,
@@ -76,7 +76,7 @@ export async function applySafeMigration() {
     CREATE INDEX IF NOT EXISTS "email_verification_tokens_userId_idx" ON "email_verification_tokens"("userId");
     CREATE INDEX IF NOT EXISTS "email_verification_tokens_expiresAt_idx" ON "email_verification_tokens"("expiresAt");
   `);
-  console.log('✓ email_verification_tokens table and indexes verified');
+  console.log('✔ email_verification_tokens table and indexes verified');
 
   // 2. Create NotificationType enum if not exists
   await prisma.$executeRawUnsafe(`

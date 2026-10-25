@@ -7,6 +7,7 @@ import Badge from '../../components/common/Badge';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
+import { useLanguage } from '../../context/LanguageContext';
 import RecordVerificationModal from '../../components/audit/RecordVerificationModal';
 import CaseSummaryModal from '../../components/legal/CaseSummaryModal';
 import AccountabilityTimeline from '../../components/timeline/AccountabilityTimeline';
@@ -32,6 +33,7 @@ import {
 
 export default function CitizenDashboardPage() {
   const { isDark } = useTheme();
+  const { t } = useLanguage();
   const { user, realUser, isAuthenticated } = useAuth();
   const {
     complaints,
@@ -136,23 +138,23 @@ export default function CitizenDashboardPage() {
   return (
     <div className="max-w-[1520px] mx-auto px-4 sm:px-8 lg:px-14 py-8">
       <PageHeader
-        title={`Citizen Grievance Dashboard — ${isAuthenticated && realUser ? realUser.name : user?.name || 'Aditya Kumar Verma'}`}
-        subtitle="Manage your active complaints, track statutory SLA countdowns, provide requested information, and verify cryptographic chain integrity."
+        title={`${t('dashTitle')} — ${isAuthenticated && realUser ? realUser.name : user?.name || 'Aditya Kumar Verma'}`}
+        subtitle={t('dashSubtitle')}
         badge={
           isAuthenticated && realUser ? (
-            <Badge variant="success" dot>Live Database Session ({realUser.role})</Badge>
+            <Badge variant="success" dot>{t('dashLiveSession')} ({realUser.role})</Badge>
           ) : (
-            <Badge variant="success" dot>DigiLocker Verified Citizen (Demo)</Badge>
+            <Badge variant="success" dot>{t('dashDemoCitizen')}</Badge>
           )
         }
-        breadcrumbs={[{ label: 'Citizen Portal' }, { label: 'My Complaints' }]}
+        breadcrumbs={[{ label: t('navCitizenDashboard') }, { label: t('dashMyRoster') }]}
         action={
           <Button
             variant="primary"
             icon={Plus}
             onClick={() => navigate('/report')}
           >
-            File New Complaint
+            {t('dashFileNew')}
           </Button>
         }
         isDark={isDark}
@@ -170,18 +172,18 @@ export default function CitizenDashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <GlassCard isDark={isDark} className="p-4 sm:p-5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase">Total Filed</span>
+            <span className="text-xs font-semibold text-slate-500 uppercase">{t('dashTotalFiled')}</span>
             <div className="w-8 h-8 rounded-full bg-sky-500/20 text-sky-500 flex items-center justify-center">
               <FileText className="w-4 h-4" />
             </div>
           </div>
           <div className="text-2xl font-black mt-2">{myComplaints.length}</div>
-          <span className="text-[11px] text-slate-400">Recorded with SHA-256 genesis hashes</span>
+          <span className="text-[11px] text-slate-400">{t('dashTotalFiledDesc')}</span>
         </GlassCard>
 
         <GlassCard isDark={isDark} className="p-4 sm:p-5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase">In Active Investigation</span>
+            <span className="text-xs font-semibold text-slate-500 uppercase">{t('dashActiveInvest')}</span>
             <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center">
               <Clock className="w-4 h-4" />
             </div>
@@ -189,12 +191,12 @@ export default function CitizenDashboardPage() {
           <div className="text-2xl font-black mt-2">
             {myComplaints.filter((c) => (c.stage || 1) < 4).length}
           </div>
-          <span className="text-[11px] text-amber-500 font-semibold">Protected by statutory countdown</span>
+          <span className="text-[11px] text-amber-500 font-semibold">{t('dashActiveInvestDesc')}</span>
         </GlassCard>
 
         <GlassCard isDark={isDark} className="p-4 sm:p-5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase">Escalated / Appeals</span>
+            <span className="text-xs font-semibold text-slate-500 uppercase">{t('dashEscalated')}</span>
             <div className="w-8 h-8 rounded-full bg-purple-500/20 text-purple-500 flex items-center justify-center">
               <AlertTriangle className="w-4 h-4" />
             </div>
@@ -202,12 +204,12 @@ export default function CitizenDashboardPage() {
           <div className="text-2xl font-black mt-2">
             {myComplaints.filter((c) => (c.stage || 1) >= 2 && (c.stage || 1) < 4).length}
           </div>
-          <span className="text-[11px] text-purple-400 font-semibold">Senior Appellate & Lokayukta review</span>
+          <span className="text-[11px] text-purple-400 font-semibold">{t('dashEscalatedDesc')}</span>
         </GlassCard>
 
         <GlassCard isDark={isDark} className="p-4 sm:p-5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase">Resolved & Redressed</span>
+            <span className="text-xs font-semibold text-slate-500 uppercase">{t('dashResolved')}</span>
             <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center">
               <CheckCircle2 className="w-4 h-4" />
             </div>
@@ -215,7 +217,7 @@ export default function CitizenDashboardPage() {
           <div className="text-2xl font-black mt-2">
             {myComplaints.filter((c) => (c.stage || 1) === 4).length}
           </div>
-          <span className="text-[11px] text-emerald-500 font-semibold">Verified compliance reports</span>
+          <span className="text-[11px] text-emerald-500 font-semibold">{t('dashResolvedDesc')}</span>
         </GlassCard>
       </div>
 
@@ -226,9 +228,9 @@ export default function CitizenDashboardPage() {
         <div className="lg:col-span-1 space-y-3">
           <div className="flex items-center justify-between mb-2">
             <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400">
-              My Grievance Roster ({myComplaints.length})
+              {t('dashMyRoster')} ({myComplaints.length})
             </h3>
-            <span className="text-xs text-primary font-semibold">Append-Only</span>
+            <span className="text-xs text-primary font-semibold">{t('dashAppendOnly')}</span>
           </div>
 
           {myComplaints.map((c) => {
@@ -322,7 +324,7 @@ export default function CitizenDashboardPage() {
                     className="px-3.5 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-all flex items-center gap-1.5 shadow-sm"
                   >
                     <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>Verify this Record</span>
+                    <span>{t('dashVerifyRecordBtn')}</span>
                   </button>
                 </div>
               </div>
@@ -383,7 +385,7 @@ export default function CitizenDashboardPage() {
                   className="px-3.5 py-2 rounded-xl bg-card hover:bg-muted text-foreground border border-border text-xs font-semibold transition-all flex items-center gap-1.5"
                 >
                   <Plus className="w-3.5 h-3.5 text-primary" />
-                  <span>Add Supplemental Information</span>
+                  <span>{t('dashAddInfoBtn')}</span>
                 </button>
 
                 <button
@@ -392,7 +394,7 @@ export default function CitizenDashboardPage() {
                   className="px-3.5 py-2 rounded-xl bg-card hover:bg-muted text-purple-700 dark:text-purple-300 border border-purple-500/30 text-xs font-semibold transition-all flex items-center gap-1.5"
                 >
                   <Scale className="w-3.5 h-3.5" />
-                  <span>File Statutory Appeal</span>
+                  <span>{t('dashFileAppealBtn')}</span>
                 </button>
 
                 <button

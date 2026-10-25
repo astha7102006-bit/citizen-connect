@@ -6,6 +6,7 @@ import Badge from '../../components/common/Badge';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { DEMO_ROLES } from '../../services/dataShaping';
 import RecordVerificationModal from '../../components/audit/RecordVerificationModal';
 import AccountabilityTimeline from '../../components/timeline/AccountabilityTimeline';
@@ -34,18 +35,43 @@ import {
 const STAFF_API = '/api/staff';
 
 async function apiFetch(path, options = {}) {
-  const res = await fetch(`${STAFF_API}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    ...options,
-  });
-  const json = await res.json();
+  let res;
+  try {
+    res = await fetch(`${STAFF_API}${path}`, {
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      ...options,
+    });
+  } catch (_netErr) {
+    const err = new Error('Unable to connect to the server. Please ensure the backend API is running on port 4000.');
+    err.status = 503;
+    throw err;
+  }
+
+  let text = '';
+  try {
+    text = await res.text();
+  } catch {
+    text = '';
+  }
+
+  let json = null;
+  if (text && text.trim().length > 0) {
+    try {
+      json = JSON.parse(text);
+    } catch {
+      json = null;
+    }
+  }
+
   if (!res.ok) {
-    const err = new Error(json?.error?.message ?? `Request failed ${res.status}`);
+    const message = json?.error?.message ?? json?.message ?? (res.status === 503 ? 'Backend server is offline.' : `Request failed with status ${res.status}`);
+    const err = new Error(message);
     err.status = res.status;
     throw err;
   }
-  return json;
+
+  return json ?? { success: true, data: {} };
 }
 
 /** Maps a DB complaint (from /api/staff/complaints) to the shape OfficialInboxPage uses */
@@ -81,6 +107,7 @@ function mapRealComplaint(c) {
 
 export default function OfficialInboxPage() {
   const { isDark } = useTheme();
+  const { t } = useLanguage();
   const { user, realUser, isAuthenticated } = useAuth();
   const {
     getComplaintsForRole,
@@ -370,10 +397,10 @@ export default function OfficialInboxPage() {
   return (
     <div className="max-w-[1520px] mx-auto px-4 sm:px-8 lg:px-14 py-8">
       <PageHeader
-        title="Office Official Inbox — Redacted Grievance Triage"
-        subtitle="Departmental redressal console. In compliance with Whistleblower and Citizen Privacy provisions, personal citizen PII and witnesses are cryptographically redacted."
-        badge={<Badge variant="amber" dot>Official Role View</Badge>}
-        breadcrumbs={[{ label: 'Official Console' }, { label: 'Grievance Inbox' }]}
+        title={t('officialTitle')}
+        subtitle={t('officialSubtitle')}
+        badge={<Badge variant="amber" dot>{t('roleOfficial')}</Badge>}
+        breadcrumbs={[{ label: t('navScreens') }, { label: t('navOfficialInbox') }]}
         isDark={isDark}
       />
 

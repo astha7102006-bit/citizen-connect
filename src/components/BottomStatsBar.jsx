@@ -1,8 +1,18 @@
 import React from 'react';
 import { Users, Shield, TrendingUp, HeartHandshake } from 'lucide-react';
 import { getTranslation } from '../i18n/translations';
+import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
 
-export default function BottomStatsBar({ isDark, currentLang = 'en' }) {
+export default function BottomStatsBar({
+  isDark: propIsDark,
+  currentLang: propCurrentLang,
+}) {
+  const { isDark: contextIsDark } = useTheme();
+  const { currentLang: contextLang, t } = useLanguage();
+
+  const isDark = propIsDark !== undefined ? propIsDark : contextIsDark;
+  const currentLang = propCurrentLang || contextLang || 'en';
   const stats = [
     {
       icon: Users,

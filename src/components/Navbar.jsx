@@ -24,11 +24,13 @@ import {
 } from 'lucide-react';
 import { getTranslation, LANGUAGES } from '../i18n/translations';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Navbar({
-  isDark,
-  setIsDark,
-  currentLang = 'en',
+  isDark: propIsDark,
+  setIsDark: propSetIsDark,
+  currentLang: propCurrentLang,
   onOpenLanguageModal,
   onOpenFileComplaint,
   onOpenTrack,
@@ -36,6 +38,14 @@ export default function Navbar({
   onOpenSearch,
   onOpenLogin,
 }) {
+  const { isDark: contextIsDark, setIsDark: contextSetIsDark } = useTheme();
+  const { currentLang: contextLang, currentLangObj: contextLangObj, t } = useLanguage();
+
+  const isDark = propIsDark !== undefined ? propIsDark : contextIsDark;
+  const setIsDark = propSetIsDark || contextSetIsDark;
+  const currentLang = propCurrentLang || contextLang || 'en';
+  const currentLangObj = contextLangObj || LANGUAGES.find((l) => l.code === currentLang) || LANGUAGES[0];
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [portalsOpen, setPortalsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('Home');
@@ -53,8 +63,6 @@ export default function Navbar({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const currentLangObj = LANGUAGES.find((l) => l.code === currentLang) || LANGUAGES[0];
 
   const isCurrent = (path) => location.pathname === path;
 
@@ -93,7 +101,7 @@ export default function Navbar({
     },
     {
       name: 'Public Records',
-      label: 'Public Records',
+      label: getTranslation(currentLang, 'navPublicRecords'),
       isActive: isCurrent('/public-records') || isCurrent('/transparency'),
       action: () => {
         setActiveTab('Public Records');
@@ -112,14 +120,14 @@ export default function Navbar({
   ];
 
   const portalScreens = [
-    { label: 'Citizen Dashboard', path: '/citizen-dashboard', icon: User, desc: 'My complaints & SLA tracking' },
-    { label: 'Office Official Inbox', path: '/official-inbox', icon: ShieldCheck, desc: 'Reviewer-redacted department queue' },
-    { label: 'Oversight Reviewer', path: '/reviewer-dashboard', icon: Scale, desc: 'Raw files, whistleblower protection' },
-    { label: 'Accountability Timeline', path: '/timeline', icon: Clock, desc: 'Immutable chronological audit trail' },
-    { label: 'Next Steps & Legal Remedies', path: '/legal-remedies', icon: BookOpen, desc: 'RTI, Lokayukta, Writs guidance' },
-    { label: 'Accountability Methodology', path: '/methodology', icon: FileText, desc: 'Zero-vanishing system architecture' },
-    { label: 'Admin Demo Controls', path: '/admin-demo', icon: Lock, desc: 'Simulation clock & immutable ledger' },
-    { label: 'Accessibility & Settings', path: '/settings', icon: Settings, desc: 'Theme, Indian scripts, text size' },
+    { label: getTranslation(currentLang, 'navCitizenDashboard'), path: '/citizen-dashboard', icon: User, desc: getTranslation(currentLang, 'navCitizenDashboardDesc') },
+    { label: getTranslation(currentLang, 'navOfficialInbox'), path: '/official-inbox', icon: ShieldCheck, desc: getTranslation(currentLang, 'navOfficialInboxDesc') },
+    { label: getTranslation(currentLang, 'navReviewerDashboard'), path: '/reviewer-dashboard', icon: Scale, desc: getTranslation(currentLang, 'navReviewerDashboardDesc') },
+    { label: getTranslation(currentLang, 'navTimeline'), path: '/timeline', icon: Clock, desc: getTranslation(currentLang, 'navTimelineDesc') },
+    { label: getTranslation(currentLang, 'navLegalRemedies'), path: '/legal-remedies', icon: BookOpen, desc: getTranslation(currentLang, 'navLegalRemediesDesc') },
+    { label: getTranslation(currentLang, 'navMethodology'), path: '/methodology', icon: FileText, desc: getTranslation(currentLang, 'navMethodologyDesc') },
+    { label: getTranslation(currentLang, 'navAdminDemo'), path: '/admin-demo', icon: Lock, desc: getTranslation(currentLang, 'navAdminDemoDesc') },
+    { label: getTranslation(currentLang, 'navSettings'), path: '/settings', icon: Settings, desc: getTranslation(currentLang, 'navSettingsDesc') },
   ];
 
   return (
@@ -199,10 +207,10 @@ export default function Navbar({
                   ? 'bg-slate-800/80 border-slate-700 hover:border-sky-400 text-sky-300 hover:bg-slate-750'
                   : 'bg-white/80 border-slate-200 hover:border-[#E06820] text-slate-800 hover:bg-white shadow-xs'
               }`}
-              title="Platform Modules & Role Portals"
+              title={getTranslation(currentLang, 'navScreensHeader')}
             >
               <LayoutDashboard className="w-3.5 h-3.5 text-[#E06820]" />
-              <span>Screens</span>
+              <span>{getTranslation(currentLang, 'navScreens')}</span>
               <ChevronDown className="w-3 h-3 opacity-60" />
             </button>
 
@@ -215,7 +223,7 @@ export default function Navbar({
                 }`}
               >
                 <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200/40 dark:border-slate-800">
-                  Platform Screens & Workbenches
+                  {getTranslation(currentLang, 'navScreensHeader')}
                 </div>
                 <div className="space-y-1 py-1 max-h-80 overflow-y-auto">
                   {portalScreens.map((sc, i) => {
@@ -302,7 +310,7 @@ export default function Navbar({
                 ? 'text-amber-300 hover:bg-slate-800/70'
                 : 'text-slate-700 hover:bg-white/70'
             }`}
-            title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            title={isDark ? getTranslation(currentLang, 'switchLight') : getTranslation(currentLang, 'switchDark')}
             aria-label="Toggle Theme"
           >
             {isDark ? (
@@ -324,10 +332,10 @@ export default function Navbar({
                     ? 'bg-[#0F4C81] hover:bg-[#0284C7] text-white border border-sky-400/30'
                     : 'bg-[#0F4C81] hover:bg-[#135A99] text-white'
                 }`}
-                title="Go to Citizen Dashboard"
+                title={getTranslation(currentLang, 'navMyDashboard')}
               >
                 <LayoutDashboard className="w-3.5 h-3.5" />
-                <span className="max-w-[130px] truncate">{realUser.name || 'Dashboard'}</span>
+                <span className="max-w-[130px] truncate">{realUser.name || getTranslation(currentLang, 'navMyDashboard')}</span>
               </button>
 
               <button
@@ -340,8 +348,8 @@ export default function Navbar({
                     ? 'border-red-500/30 text-red-400 hover:bg-red-500/10'
                     : 'border-red-200 text-red-600 hover:bg-red-50'
                 }`}
-                title="Sign Out"
-                aria-label="Sign Out"
+                title={getTranslation(currentLang, 'navSignOut')}
+                aria-label={getTranslation(currentLang, 'navSignOut')}
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -487,7 +495,7 @@ export default function Navbar({
                   className="w-full py-3 px-4 rounded-full bg-[#0F4C81] text-white font-semibold flex items-center justify-center space-x-2 shadow"
                 >
                   <LayoutDashboard className="w-4 h-4" />
-                  <span>My Dashboard ({realUser.name})</span>
+                  <span>{getTranslation(currentLang, 'navMyDashboard')} ({realUser.name})</span>
                 </button>
                 <button
                   onClick={async () => {
@@ -498,7 +506,7 @@ export default function Navbar({
                   className="w-full py-2.5 px-4 rounded-full border border-red-500/30 text-red-500 font-semibold flex items-center justify-center space-x-2"
                 >
                   <LogOut className="w-4 h-4" />
-                  <span>Sign Out</span>
+                  <span>{getTranslation(currentLang, 'navSignOut')}</span>
                 </button>
               </div>
             ) : (

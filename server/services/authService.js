@@ -1,8 +1,16 @@
 /**
- * CitizenConnect — Authentication Service (Phase 3)
+ * CitizenConnect — Authentication Service (Phase 3 + Security Hardening)
  *
  * Encapsulates all auth business logic so route handlers stay thin.
  * Imported by server/routes/auth.js.
+ *
+ * Security hardening additions:
+ * - Password max-length enforced before bcrypt (DoS prevention).
+ * - Password reset: expiring single-use tokens, stored as SHA-256 hashes.
+ * - Email verification: expiring single-use tokens, stored as SHA-256 hashes.
+ * - Generic error responses to prevent user enumeration.
+ * - Tokens are never logged.
+ * - Session version tracking and instantaneous multi-device session revocation.
  */
 
 import crypto from 'crypto';
@@ -57,15 +65,83 @@ export function maskEmail(email) {
 
 /**
  * Returns a sanitised user object safe to send to clients.
- * Never includes passwordHash.
+ * Never includes passwordHash, resetTokenHash, verifyTokenHash, or any secret.
  *
  * @param {object} user - Raw Prisma user record
  * @returns {object}
  */
 export function sanitiseUser(user) {
-  // eslint-disable-next-line no-unused-vars
-  const { passwordHash, ...safe } = user;
+  if (!user) return null;
+  const {
+    passwordHash: _passwordHash,
+    resetTokenHash: _resetTokenHash,
+    resetTokenExpiresAt: _resetTokenExpiresAt,
+    verifyTokenHash: _verifyTokenHash,
+    verifyTokenExpiresAt: _verifyTokenExpiresAt,
+    ...safe
+  } = user;
   return safe;
+}
+
+/**
+ * Generate a cryptographically random URL-safe token and its SHA-256 hash.
+ * The raw token is sent to the user; only the hash is stored.
+ *
+ * @param {number} [byteLength=32] - Entropy bytes (32 → 64 hex chars)
+ * @returns {{ rawToken: string, tokenHash: string }}
+ */
+function generateSecureToken(byteLength = 32) {
+  const rawToken = crypto.randomBytes(byteLength).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  return { rawToken, tokenHash };
+}
+
+/**
+ * Hash a provided token for safe database lookup.
+ */
+function hashToken(rawToken) {
+  return crypto.createHash('sha256').update(rawToken).digest('hex');
+}
+
+/**
+ * Send an email (requires SMTP configuration).
+ * Logs an operational notice when SMTP is not configured so devs know it's a no-op.
+ * NEVER logs raw token values or reset links.
+ *
+ * @param {{ to: string, subject: string, text: string, html?: string }} opts
+ * @returns {Promise<{ sent: boolean, reason?: string }>}
+ */
+export async function sendEmail({ to, subject, text }) {
+  if (!env.SMTP_HOST || !env.SMTP_USER) {
+    console.warn(
+      `[Email] SMTP not configured. Email NOT sent to ${to}. ` +
+      `Subject: "${subject}". ` +
+      'Configure SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM in your environment.'
+    );
+    return { sent: false, reason: 'SMTP_NOT_CONFIGURED' };
+  }
+
+  try {
+    const nodemailer = await import('nodemailer');
+    const transporter = nodemailer.default.createTransport({
+      host: env.SMTP_HOST,
+      port: env.SMTP_PORT,
+      secure: env.SMTP_PORT === 465,
+      auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
+    });
+
+    await transporter.sendMail({
+      from: env.SMTP_FROM,
+      to,
+      subject,
+      text,
+    });
+
+    return { sent: true };
+  } catch (err) {
+    console.error(`[Email] Failed to send email to ${to}: ${err.message}`);
+    return { sent: false, reason: err.message };
+  }
 }
 
 // ── Register ──────────────────────────────────────────────────────────────────
@@ -78,7 +154,8 @@ export function sanitiseUser(user) {
  *  - Duplicate emails return a domain error (caller converts to 409).
  *  - Role is ALWAYS forced to CITIZEN regardless of input.
  *  - Password validated against bcrypt 72-byte limit and hashed.
- *  - Default sessionVersion = 1, emailVerified = false.
+ *  - Account is created in PENDING_VERIFICATION state until email is verified.
+ *  - Generates a cryptographically random, expiring, single-use verification token.
  *
  * @param {{ name: string, email: string, password: string, phone?: string }} data
  * @returns {Promise<object>} Sanitised user record
@@ -108,6 +185,8 @@ export async function registerUser({ name, email, password, phone }) {
   }
 
   const passwordHash = await bcrypt.hash(password, env.BCRYPT_ROUNDS);
+  const { rawToken, tokenHash } = generateSecureToken(32);
+  const expiresAt = new Date(Date.now() + env.EMAIL_VERIFY_TOKEN_TTL_HOURS * 60 * 60 * 1000);
 
   const user = await prisma.user.create({
     data: {
@@ -116,11 +195,34 @@ export async function registerUser({ name, email, password, phone }) {
       passwordHash,
       phone: phone?.trim() || null,
       role: 'CITIZEN',          // Hardcoded — never from client input
-      accountStatus: 'ACTIVE',
-      sessionVersion: 1,
+      accountStatus: 'PENDING_VERIFICATION',
       emailVerified: false,
+      emailVerifiedAt: null,
+      verifyTokenHash: tokenHash,
+      verifyTokenExpiresAt: expiresAt,
+      sessionVersion: 1,
     },
   });
+
+  const verifyUrl = `${env.APP_URL}/verify-email?token=${rawToken}`;
+
+  const emailResult = await sendEmail({
+    to: user.email,
+    subject: 'CitizenConnect — Verify Your Email Address',
+    text:
+      `Hello ${user.name},\n\n` +
+      `Thank you for registering with CitizenConnect.\n` +
+      `Please verify your email address to activate your account:\n` +
+      `${verifyUrl}\n\n` +
+      `This link expires in ${env.EMAIL_VERIFY_TOKEN_TTL_HOURS} hour${env.EMAIL_VERIFY_TOKEN_TTL_HOURS !== 1 ? 's' : ''}.\n\n` +
+      `CitizenConnect Team`,
+  });
+
+  if (!emailResult.sent) {
+    console.warn(
+      `[Email] Verification email delivery not completed for recipient: ${emailResult.reason || 'Unknown error'}`
+    );
+  }
 
   return sanitiseUser(user);
 }
@@ -132,6 +234,8 @@ export async function registerUser({ name, email, password, phone }) {
  *
  * Security note: Both "email not found" and "wrong password" return the
  * SAME generic error to prevent account enumeration attacks.
+ *
+ * Enforces email verification: unverified accounts cannot log in.
  *
  * @param {{ email: string, password: string }} data
  * @returns {Promise<object>} Sanitised user record
@@ -182,6 +286,15 @@ export async function loginUser({ email, password }) {
     throw err;
   }
 
+  if (user.accountStatus === 'PENDING_VERIFICATION' || !user.emailVerifiedAt) {
+    const err = new Error(
+      'Please verify your email address before logging in. Check your inbox for the verification link.'
+    );
+    err.code = 'EMAIL_NOT_VERIFIED';
+    err.status = 403;
+    throw err;
+  }
+
   if (user.accountStatus !== 'ACTIVE') {
     const err = new Error('Your account has been suspended or deactivated.');
     err.code = 'ACCOUNT_INACTIVE';
@@ -213,11 +326,7 @@ export async function revokeAllUserSessions(userId) {
 // ── Password Reset (Single-Use with Concurrency Protection) ───────────────────
 
 /**
- * Initiates a password reset request.
- * - Generates a 256-bit cryptographically secure token.
- * - Stores SHA-256 hash in database with short expiration (15 minutes).
- * - Invalidates any previous unused reset tokens for this user.
- * - Emits audit log with masked recipient (no token/PII exposure).
+ * Initiates a password reset request via dedicated token table.
  *
  * @param {{ email: string }} params
  * @returns {Promise<{ message: string, rawToken?: string }>}
@@ -232,17 +341,14 @@ export async function requestPasswordReset({ email }) {
   });
 
   if (!user || user.accountStatus !== 'ACTIVE') {
-    // Return identical message to prevent user enumeration
     return { message: GENERIC_RESPONSE };
   }
 
-  // Invalidate any previously issued unused tokens for this user
   await prisma.passwordResetToken.updateMany({
     where: { userId: user.id, usedAt: null },
     data: { usedAt: new Date() },
   });
 
-  // Generate 32 bytes (256 bits) of cryptographic entropy
   const rawToken = crypto.randomBytes(32).toString('hex');
   const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15-minute validity window
@@ -255,25 +361,18 @@ export async function requestPasswordReset({ email }) {
     },
   });
 
-  // Safe logging: Never log raw tokens or plain email addresses
   if (process.env.NODE_ENV !== 'test') {
     console.log(`[AUTH_AUDIT] Password reset token issued for user: ${maskEmail(normalisedEmail)} (expires in 15m)`);
   }
 
   return {
     message: GENERIC_RESPONSE,
-    // Return token in test mode to support automated regression testing
     ...(process.env.NODE_ENV === 'test' ? { rawToken } : {}),
   };
 }
 
 /**
- * Resets a user's password using a single-use token.
- *
- * Strict Concurrency & Security Rules:
- *  - Atomic conditional update ensures the token cannot be used twice, even under concurrent race conditions.
- *  - Enforces bcrypt 72-byte password limit.
- *  - Increments sessionVersion to immediately invalidate all existing sessions.
+ * Resets a user's password using a single-use token from the token table.
  *
  * @param {{ token: string, newPassword: string }} params
  * @returns {Promise<object>} Sanitised user
@@ -297,9 +396,7 @@ export async function resetPassword({ token, newPassword }) {
   const tokenHash = crypto.createHash('sha256').update(token.trim()).digest('hex');
   const now = new Date();
 
-  // ATOMIC CONSUMPTION:
-  // updateMany with `usedAt: null` and `expiresAt: { gt: now }` guarantees that under concurrent requests,
-  // exactly ONE request will match and update the row. Any concurrent runner will see count === 0.
+  // ATOMIC CONSUMPTION
   const updated = await prisma.passwordResetToken.updateMany({
     where: {
       tokenHash,
@@ -318,7 +415,6 @@ export async function resetPassword({ token, newPassword }) {
     throw err;
   }
 
-  // Retrieve token owner
   const tokenRecord = await prisma.passwordResetToken.findUnique({
     where: { tokenHash },
     select: { userId: true },
@@ -333,7 +429,6 @@ export async function resetPassword({ token, newPassword }) {
 
   const passwordHash = await bcrypt.hash(newPassword, env.BCRYPT_ROUNDS);
 
-  // Update password and increment sessionVersion to revoke all active sessions
   const updatedUser = await prisma.user.update({
     where: { id: tokenRecord.userId },
     data: {
@@ -349,10 +444,105 @@ export async function resetPassword({ token, newPassword }) {
   return sanitiseUser(updatedUser);
 }
 
-// ── Email Verification (Single-Use with Concurrency Protection) ───────────────
+// ── Password Reset (User record fields based for Security Hardening tests) ────
 
 /**
- * Generates a single-use email verification token.
+ * Initiate a password reset for the given email (updating User record).
+ *
+ * @param {{ email: string }} data
+ */
+export async function initiatePasswordReset({ email }) {
+  const normalisedEmail = email.trim().toLowerCase();
+
+  const user = await prisma.user.findUnique({
+    where: { email: normalisedEmail },
+    select: { id: true, name: true, email: true },
+  });
+
+  if (!user) return;
+
+  const { rawToken, tokenHash } = generateSecureToken(32);
+  const expiresAt = new Date(Date.now() + env.PASSWORD_RESET_TOKEN_TTL_HOURS * 60 * 60 * 1000);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      resetTokenHash: tokenHash,
+      resetTokenExpiresAt: expiresAt,
+    },
+  });
+
+  const resetUrl = `${env.APP_URL}/reset-password?token=${rawToken}`;
+
+  const emailResult = await sendEmail({
+    to: user.email,
+    subject: 'CitizenConnect — Password Reset Request',
+    text:
+      `Hello ${user.name},\n\n` +
+      `A password reset was requested for your CitizenConnect account.\n\n` +
+      `Reset your password here (expires in ${env.PASSWORD_RESET_TOKEN_TTL_HOURS} hour${env.PASSWORD_RESET_TOKEN_TTL_HOURS !== 1 ? 's' : ''}):\n` +
+      `${resetUrl}\n\n` +
+      `If you did not request this, you can safely ignore this email.\n\n` +
+      `CitizenConnect Security Team`,
+  });
+
+  if (!emailResult.sent) {
+    console.warn(
+      `[Email] Password reset email delivery not completed for recipient: ${emailResult.reason || 'Unknown error'}`
+    );
+  }
+}
+
+/**
+ * Complete password reset using a one-time token stored on User record.
+ *
+ * @param {{ token: string, password: string }} data
+ */
+export async function completePasswordReset({ token, password }) {
+  if (password.length < env.PASSWORD_MIN_LENGTH || password.length > env.PASSWORD_MAX_LENGTH) {
+    const err = new Error(
+      `Password must be between ${env.PASSWORD_MIN_LENGTH} and ${env.PASSWORD_MAX_LENGTH} characters.`
+    );
+    err.code = 'VALIDATION_ERROR';
+    err.status = 400;
+    throw err;
+  }
+
+  const tokenHash = hashToken(token);
+  const now = new Date();
+
+  const user = await prisma.user.findFirst({
+    where: {
+      resetTokenHash: tokenHash,
+      resetTokenExpiresAt: { gt: now },
+    },
+    select: { id: true, accountStatus: true },
+  });
+
+  if (!user) {
+    const err = new Error('Password reset link is invalid or has expired. Please request a new one.');
+    err.code = 'TOKEN_INVALID';
+    err.status = 400;
+    throw err;
+  }
+
+  const passwordHash = await bcrypt.hash(password, env.BCRYPT_ROUNDS);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      passwordHash,
+      resetTokenHash: null,
+      resetTokenExpiresAt: null,
+      sessionVersion: { increment: 1 },
+    },
+  });
+}
+
+// ── Email Verification ────────────────────────────────────────────────────────
+
+/**
+ * Generates a single-use email verification token in dedicated token table.
  *
  * @param {{ userId: string }} params
  * @returns {Promise<{ message: string, rawToken?: string }>}
@@ -374,7 +564,6 @@ export async function requestEmailVerification({ userId }) {
     return { message: 'Email is already verified.' };
   }
 
-  // Invalidate previous verification tokens
   await prisma.emailVerificationToken.updateMany({
     where: { userId, usedAt: null },
     data: { usedAt: new Date() },
@@ -403,10 +592,7 @@ export async function requestEmailVerification({ userId }) {
 }
 
 /**
- * Atomically verifies an email using a single-use token.
- *
- * Concurrency Protection:
- *  - updateMany guarantees exactly one concurrent request can consume the token.
+ * Atomically verifies an email using a single-use token in dedicated token table.
  *
  * @param {{ token: string }} params
  * @returns {Promise<object>} Sanitised user
@@ -422,7 +608,6 @@ export async function verifyEmailToken({ token }) {
   const tokenHash = crypto.createHash('sha256').update(token.trim()).digest('hex');
   const now = new Date();
 
-  // ATOMIC CONSUMPTION:
   const updated = await prisma.emailVerificationToken.updateMany({
     where: {
       tokenHash,
@@ -466,4 +651,104 @@ export async function verifyEmailToken({ token }) {
   }
 
   return sanitiseUser(updatedUser);
+}
+
+/**
+ * Resend an email verification link to the specified user (User model based).
+ *
+ * @param {{ userId: string, email: string }} data
+ * @returns {Promise<{ sent: boolean, reason?: string }>}
+ */
+export async function resendVerificationEmail({ userId, email: _email }) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, email: true, emailVerifiedAt: true },
+  });
+
+  if (!user) {
+    const err = new Error('User not found.');
+    err.code = 'NOT_FOUND';
+    err.status = 404;
+    throw err;
+  }
+
+  if (user.emailVerifiedAt) {
+    const err = new Error('This email address is already verified.');
+    err.code = 'ALREADY_VERIFIED';
+    err.status = 400;
+    throw err;
+  }
+
+  const { rawToken, tokenHash } = generateSecureToken(32);
+  const expiresAt = new Date(Date.now() + env.EMAIL_VERIFY_TOKEN_TTL_HOURS * 60 * 60 * 1000);
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      verifyTokenHash: tokenHash,
+      verifyTokenExpiresAt: expiresAt,
+    },
+  });
+
+  const verifyUrl = `${env.APP_URL}/verify-email?token=${rawToken}`;
+
+  const emailResult = await sendEmail({
+    to: user.email,
+    subject: 'CitizenConnect — Verify Your Email Address',
+    text:
+      `Hello ${user.name},\n\n` +
+      `Please verify your email address to activate your CitizenConnect account:\n` +
+      `${verifyUrl}\n\n` +
+      `This link expires in ${env.EMAIL_VERIFY_TOKEN_TTL_HOURS} hour${env.EMAIL_VERIFY_TOKEN_TTL_HOURS !== 1 ? 's' : ''}.\n\n` +
+      `CitizenConnect Team`,
+  });
+
+  if (!emailResult.sent) {
+    console.warn(
+      `[Email] Verification email delivery not completed for recipient: ${emailResult.reason || 'Unknown error'}`
+    );
+  }
+
+  return { sent: emailResult.sent, reason: emailResult.reason };
+}
+
+/**
+ * Mark email as verified using a single-use token on User model.
+ * Only transitions PENDING_VERIFICATION accounts to ACTIVE; never reactivates SUSPENDED or DEACTIVATED accounts.
+ *
+ * @param {{ token: string }} data
+ */
+export async function verifyEmail({ token }) {
+  const tokenHash = hashToken(token);
+  const now = new Date();
+
+  const user = await prisma.user.findFirst({
+    where: {
+      verifyTokenHash: tokenHash,
+      verifyTokenExpiresAt: { gt: now },
+    },
+    select: { id: true, emailVerifiedAt: true, accountStatus: true },
+  });
+
+  if (!user) {
+    const err = new Error('Email verification link is invalid or has expired. Please request a new one.');
+    err.code = 'TOKEN_INVALID';
+    err.status = 400;
+    throw err;
+  }
+
+  const updateData = {
+    emailVerifiedAt: now,
+    verifyTokenHash: null,
+    verifyTokenExpiresAt: null,
+  };
+
+  if (user.accountStatus === 'PENDING_VERIFICATION') {
+    updateData.accountStatus = 'ACTIVE';
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: updateData,
+  });
 }

@@ -4,6 +4,7 @@ import GlassCard from '../../components/common/GlassCard';
 import Badge from '../../components/common/Badge';
 import Button from '../../components/common/Button';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { Link } from 'react-router-dom';
 import {
   ShieldCheck,
@@ -25,6 +26,7 @@ import {
 
 export default function MethodologyPage() {
   const { isDark } = useTheme();
+  const { t } = useLanguage();
 
   // "Report an Error" Modal State
   const [showErrorModal, setShowErrorModal] = useState(false);
@@ -58,10 +60,10 @@ export default function MethodologyPage() {
       </div>
 
       <PageHeader
-        title="CitizenConnect Accountability Methodology & Architecture"
-        subtitle="The operational design, cryptographic guarantees, and statutory escalation protocols that ensure grievances can never be quietly buried or delayed indefinitely."
-        badge={<Badge variant="primary" dot>Architectural Whitepaper</Badge>}
-        breadcrumbs={[{ label: 'Platform' }, { label: 'Methodology' }]}
+        title={t('methodologyTitle')}
+        subtitle={t('methodologySubtitle')}
+        badge={<Badge variant="primary" dot>{t('navMethodology')}</Badge>}
+        breadcrumbs={[{ label: t('navScreens') }, { label: t('navMethodology') }]}
         action={
           <div className="flex items-center gap-2">
             <Link to="/public-records">

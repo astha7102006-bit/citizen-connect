@@ -5,6 +5,7 @@ import Button from '../../components/common/Button';
 import Badge from '../../components/common/Badge';
 import { useTheme } from '../../context/ThemeContext';
 import { useData } from '../../context/DataContext';
+import { useLanguage } from '../../context/LanguageContext';
 import {
   Search,
   Clock,
@@ -24,6 +25,7 @@ import AccountabilityTimeline from '../../components/timeline/AccountabilityTime
 
 export default function TrackComplaintPage() {
   const { isDark } = useTheme();
+  const { t } = useLanguage();
   const { complaints, escalateComplaint, trackRealComplaint } = useData();
 
   const [searchQuery, setSearchQuery] = useState(complaints[0]?.id || 'CC-2026-DL-28491');
@@ -80,34 +82,34 @@ export default function TrackComplaintPage() {
 
   const stages = [
     {
-      title: 'Level 1: Ward Grievance Officer',
-      desc: 'Assigned to local field officer. Statutory limit: 7 days.',
-      timeWindow: 'Day 1 - 7',
+      title: t('trackStage1Title'),
+      desc: t('trackStage1Desc'),
+      timeWindow: t('trackStage1Window'),
     },
     {
-      title: 'Level 2: First Appellate Authority',
-      desc: 'Automatic escalation triggered upon Level 1 SLA lapse.',
-      timeWindow: 'Day 8 - 15',
+      title: t('trackStage2Title'),
+      desc: t('trackStage2Desc'),
+      timeWindow: t('trackStage2Window'),
     },
     {
-      title: 'Level 3: Lokayukta / Vigilance Commission',
-      desc: 'Independent statutory anti-corruption review with penal powers.',
-      timeWindow: 'Day 16 - 30',
+      title: t('trackStage3Title'),
+      desc: t('trackStage3Desc'),
+      timeWindow: t('trackStage3Window'),
     },
     {
-      title: 'Final Action & Public Redressal',
-      desc: 'Statutory compliance report filed and matter officially closed.',
-      timeWindow: 'Completed',
+      title: t('trackStage4Title'),
+      desc: t('trackStage4Desc'),
+      timeWindow: t('trackStage4Window'),
     },
   ];
 
   return (
     <div className="max-w-[1520px] mx-auto px-4 sm:px-8 lg:px-14 py-8">
       <PageHeader
-        title="Time-Bound Complaint Escalation Tracker"
-        subtitle="Track your complaint through each statutory level. If an officer fails to act, the system automatically advances your case to the next tier."
-        badge={<Badge variant="primary" dot>Live SLA Monitor</Badge>}
-        breadcrumbs={[{ label: 'Grievance Redressal' }, { label: 'Track Status' }]}
+        title={t('trackTitle')}
+        subtitle={t('trackSubtitle')}
+        badge={<Badge variant="primary" dot>{t('stat2Text')}</Badge>}
+        breadcrumbs={[{ label: t('navHome') }, { label: t('navTrackStatus') }]}
         isDark={isDark}
       />
 
@@ -120,14 +122,14 @@ export default function TrackComplaintPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Enter Tracking Reference ID (e.g. CC-2026-DL-28491)"
+              placeholder={t('trackInputPlaceholder')}
               className={`w-full pl-11 pr-4 py-3 rounded-2xl text-sm border focus:outline-none focus:ring-2 focus:ring-[#0F4C81] ${
                 isDark ? 'glass-input-dark' : 'glass-input-light'
               }`}
             />
           </div>
           <Button type="submit" disabled={searchLoading} variant="primary" className="w-full sm:w-auto">
-            {searchLoading ? 'Tracking...' : 'Track Case'}
+            {searchLoading ? t('trackSearching') : t('trackBtn')}
           </Button>
         </form>
 
@@ -233,7 +235,7 @@ export default function TrackComplaintPage() {
                     onClick={handleSimulateEscalate}
                     className="border-amber-500/40 text-amber-700 dark:text-amber-300 hover:bg-amber-500/10"
                   >
-                    Simulate SLA Lapse Escalation ↗
+                    {t('trackSimulateEscalate')}
                   </Button>
                 )}
               </div>
@@ -241,7 +243,7 @@ export default function TrackComplaintPage() {
               {/* 4-Stage Visual Escalation Hierarchy */}
               <div className="space-y-4 pt-2">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">
-                  Statutory Escalation Stages
+                  {t('trackStagesHeader')}
                 </h3>
 
                 <div className="space-y-3">

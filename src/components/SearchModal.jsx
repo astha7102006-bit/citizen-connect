@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Search, X, ArrowRight, Building, HelpCircle, FileText } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function SearchModal({ isOpen, onClose, isDark, onSelectResult }) {
   const [query, setQuery] = useState('');
+  const { t } = useLanguage();
 
   if (!isOpen) return null;
 
@@ -45,7 +47,7 @@ export default function SearchModal({ isOpen, onClose, isDark, onSelectResult })
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search departments, grievances, RTI guides..."
+            placeholder={t('transparencySearchPlaceholder')}
             className="w-full text-base bg-transparent focus:outline-none"
           />
         </div>

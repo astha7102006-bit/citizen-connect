@@ -84,10 +84,10 @@ export default function FileComplaintPage() {
   return (
     <div className="max-w-[1520px] mx-auto px-4 sm:px-8 lg:px-14 py-8">
       <PageHeader
-        title="File a Grievance with Statutory Escalation Guarantee"
-        subtitle="Complaints registered on CitizenConnect cannot quietly vanish. If unresolved within designated statutory timeframes, they automatically escalate to higher appellate authorities."
-        badge={<Badge variant="saffron" dot>SLA Protection Active</Badge>}
-        breadcrumbs={[{ label: 'Grievance Redressal' }, { label: 'File Complaint' }]}
+        title={t('btnFileComplaint')}
+        subtitle={t('heroDescription')}
+        badge={<Badge variant="saffron" dot>{t('feat3Title')}</Badge>}
+        breadcrumbs={[{ label: t('navHome') }, { label: t('navFileComplaint') }]}
         isDark={isDark}
       />
 
