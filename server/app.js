@@ -135,8 +135,7 @@ morgan.token('url', (req) => {
 if (!isTest) {
   app.use(morgan(env.LOG_LEVEL));
 }
-  app.use(morgan(env.LOG_LEVEL));
-}
+
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 // Phase 1: health only
