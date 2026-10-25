@@ -29,21 +29,56 @@ const AuthContext = createContext();
 const BASE = '/api/auth';
 
 async function apiFetch(path, options = {}) {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include', // Send/receive session cookies
-    ...options,
-  });
-  const json = await res.json();
+  let res;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include', // Send/receive session cookies
+      ...options,
+    });
+  } catch (_networkErr) {
+    const err = new Error('Unable to connect to authentication server. Please check your network connection.');
+    err.code = 'NETWORK_ERROR';
+    err.status = 0;
+    throw err;
+  }
+
+  // Safely read response text first to handle empty bodies or non-JSON payloads
+  const text = await res.text();
+  let json = null;
+  const contentType = res.headers.get('content-type') || '';
+
+  if (text && (contentType.includes('application/json') || text.trim().startsWith('{') || text.trim().startsWith('['))) {
+    try {
+      json = JSON.parse(text);
+    } catch {
+      json = null;
+    }
+  }
+
   if (!res.ok) {
-    const err = new Error(
-      json?.error?.message ?? `Request failed with status ${res.status}`
-    );
-    err.code = json?.error?.code ?? 'UNKNOWN';
+    let message;
+    if (json?.error?.message) {
+      message = json.error.message;
+    } else if (res.status === 502 || res.status === 503 || res.status === 504) {
+      message = 'Authentication service is temporarily unavailable. Please verify the API server is running.';
+    } else if (res.status === 401) {
+      message = 'Invalid email or password.';
+    } else if (res.status === 400) {
+      message = 'Invalid request. Please check your input.';
+    } else if (res.status === 404) {
+      message = 'Requested authentication endpoint was not found.';
+    } else {
+      message = `Authentication request failed (HTTP ${res.status}).`;
+    }
+
+    const err = new Error(message);
+    err.code = json?.error?.code ?? (res.status === 502 || res.status === 504 ? 'SERVICE_UNAVAILABLE' : 'API_ERROR');
     err.status = res.status;
     throw err;
   }
-  return json;
+
+  return json ?? { success: true };
 }
 
 // ── Provider ───────────────────────────────────────────────────────────────────

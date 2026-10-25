@@ -9,13 +9,6 @@ export default function RecordVerificationModal({ complaint, isOpen, onClose }) 
 
   const [verifying, setVerifying] = useState(false);
   const [verificationResult, setVerificationResult] = useState(null);
-  const [selectedEvent, setSelectedEvent] = useState(null);
-
-  useEffect(() => {
-    if (isOpen && complaint) {
-      handleRunVerification();
-    }
-  }, [isOpen, complaint]);
 
   const handleRunVerification = async () => {
     if (!complaint) return;
@@ -71,6 +64,12 @@ export default function RecordVerificationModal({ complaint, isOpen, onClose }) 
       setVerifying(false);
     }, 450);
   };
+
+  useEffect(() => {
+    if (isOpen && complaint) {
+      handleRunVerification();
+    }
+  }, [isOpen, complaint]);
 
   const handleTamper = (type) => {
     tamperComplaintRecord(complaint.id, type);

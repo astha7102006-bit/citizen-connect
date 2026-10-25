@@ -19,6 +19,7 @@ export function LanguageProvider({ children }) {
   useEffect(() => {
     localStorage.setItem('citizenconnect_lang', currentLang);
     document.documentElement.lang = currentLang;
+    document.documentElement.dir = currentLang === 'ur' ? 'rtl' : 'ltr';
   }, [currentLang]);
 
   const t = (key) => getTranslation(currentLang, key);

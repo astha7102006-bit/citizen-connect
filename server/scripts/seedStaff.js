@@ -33,6 +33,13 @@ export const STAFF_SEEDS = [
     phone: '+91-11-23314412',
     password: 'StaffPassword123!',
   },
+  {
+    email: 'citizen@citizenconnect.gov.in',
+    name: 'Aditya Kumar Verma',
+    role: 'CITIZEN',
+    phone: '+91-98765-43210',
+    password: 'CitizenPassword123!',
+  },
 ];
 
 export async function seedStaffAccounts() {

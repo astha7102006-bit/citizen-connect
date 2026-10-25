@@ -27,6 +27,11 @@ export function notFoundHandler(req, res, _next) {
  */
 // eslint-disable-next-line no-unused-vars
 export function globalErrorHandler(err, req, res, _next) {
+  // If headers were already sent, delegate to Express default handler
+  if (res.headersSent) {
+    return _next(err);
+  }
+
   // Normalise status: respect err.status / err.statusCode if set
   const status = err.status ?? err.statusCode ?? 500;
 
@@ -37,9 +42,14 @@ export function globalErrorHandler(err, req, res, _next) {
     console.error(`[Error ${status}] ${req.method} ${req.originalUrl}: ${err.message}`);
   }
 
-  sendError(res, err.message ?? 'An unexpected error occurred.', {
+  let clientMessage = err.message ?? 'An unexpected error occurred.';
+  if (status >= 500 && (process.env.NODE_ENV === 'production' || err.name?.includes('Prisma'))) {
+    clientMessage = 'An unexpected server error occurred. Please try again later.';
+  }
+
+  sendError(res, clientMessage, {
     status,
     code: err.code ?? 'INTERNAL_ERROR',
-    details: err.stack,
+    details: process.env.NODE_ENV !== 'production' ? err.stack : undefined,
   });
 }

@@ -100,21 +100,36 @@ router.post('/register', authLimiter, async (req, res, next) => {
     const user = await registerUser({ name, email, password, phone });
 
     // Regenerate session ID to prevent session fixation attacks
-    req.session.regenerate((err) => {
-      if (err) return next(err);
+    if (typeof req.session?.regenerate === 'function') {
+      req.session.regenerate((err) => {
+        if (err) return next(err);
 
-      req.session.userId = user.id;
-      req.session.role   = user.role;
-      req.session.sessionVersion = user.sessionVersion;
+        req.session.userId = user.id;
+        req.session.role   = user.role;
+        req.session.sessionVersion = user.sessionVersion;
 
+        return sendSuccess(res, { user }, { status: 201 });
+      });
+    } else {
+      if (req.session) {
+        req.session.userId = user.id;
+        req.session.role   = user.role;
+        req.session.sessionVersion = user.sessionVersion;
+      }
       return sendSuccess(res, { user }, { status: 201 });
-    });
+    }
   } catch (err) {
     if (err.code === 'EMAIL_TAKEN') {
       return sendError(res, err.message, { status: 409, code: 'EMAIL_TAKEN' });
     }
     if (err.code === 'VALIDATION_ERROR') {
       return sendError(res, err.message, { status: 400, code: 'VALIDATION_ERROR' });
+    }
+    if (err.code === 'P2021' || err.name === 'PrismaClientKnownRequestError' || err.name === 'PrismaClientInitializationError') {
+      return sendError(res, 'Registration service is temporarily unavailable. Please try again shortly.', {
+        status: 503,
+        code: 'SERVICE_UNAVAILABLE',
+      });
     }
     return next(err);
   }
@@ -143,21 +158,36 @@ router.post('/login', authLimiter, async (req, res, next) => {
     const user = await loginUser({ email, password });
 
     // Regenerate session ID on login to prevent fixation attacks
-    req.session.regenerate((err) => {
-      if (err) return next(err);
+    if (typeof req.session?.regenerate === 'function') {
+      req.session.regenerate((err) => {
+        if (err) return next(err);
 
-      req.session.userId = user.id;
-      req.session.role   = user.role;
-      req.session.sessionVersion = user.sessionVersion;
+        req.session.userId = user.id;
+        req.session.role   = user.role;
+        req.session.sessionVersion = user.sessionVersion;
 
+        return sendSuccess(res, { user });
+      });
+    } else {
+      if (req.session) {
+        req.session.userId = user.id;
+        req.session.role   = user.role;
+        req.session.sessionVersion = user.sessionVersion;
+      }
       return sendSuccess(res, { user });
-    });
+    }
   } catch (err) {
     if (err.code === 'INVALID_CREDENTIALS') {
       return sendError(res, err.message, { status: 401, code: 'INVALID_CREDENTIALS' });
     }
     if (err.code === 'ACCOUNT_INACTIVE') {
       return sendError(res, err.message, { status: 403, code: 'ACCOUNT_INACTIVE' });
+    }
+    if (err.code === 'P2021' || err.name === 'PrismaClientKnownRequestError' || err.name === 'PrismaClientInitializationError') {
+      return sendError(res, 'Authentication service is temporarily unavailable. Please try again shortly.', {
+        status: 503,
+        code: 'SERVICE_UNAVAILABLE',
+      });
     }
     return next(err);
   }

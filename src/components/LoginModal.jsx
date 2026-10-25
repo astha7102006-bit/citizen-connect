@@ -200,6 +200,56 @@ function RealAuthForm({ isDark, onSuccess }) {
         )}
       </button>
 
+      <div className="text-center pt-2">
+        {mode === 'login' ? (
+          <p className="text-xs text-slate-400">
+            Don't have an account yet?{' '}
+            <button
+              type="button"
+              onClick={() => { setMode('register'); setError(''); }}
+              className={`font-semibold underline cursor-pointer ${isDark ? 'text-sky-400 hover:text-sky-300' : 'text-[#0F4C81] hover:text-[#0284C7]'}`}
+            >
+              Register here
+            </button>
+          </p>
+        ) : (
+          <p className="text-xs text-slate-400">
+            Already have an account?{' '}
+            <button
+              type="button"
+              onClick={() => { setMode('login'); setError(''); }}
+              className={`font-semibold underline cursor-pointer ${isDark ? 'text-sky-400 hover:text-sky-300' : 'text-[#0F4C81] hover:text-[#0284C7]'}`}
+            >
+              Sign In here
+            </button>
+          </p>
+        )}
+      </div>
+
+      {mode === 'login' && (
+        <div className={`mt-2 p-2.5 rounded-xl border text-[11px] leading-relaxed ${
+          isDark ? 'bg-slate-800/40 border-slate-700/60 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'
+        }`}>
+          <div className="font-semibold text-slate-400 mb-1.5">Demo Accounts (Click to Fill):</div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => { setEmail('citizen@citizenconnect.gov.in'); setPassword('CitizenPassword123!'); setError(''); }}
+              className="text-[11px] px-2.5 py-1 rounded-lg bg-sky-500/15 text-sky-400 hover:bg-sky-500/25 cursor-pointer font-medium border border-sky-500/30 transition"
+            >
+              Citizen Demo
+            </button>
+            <button
+              type="button"
+              onClick={() => { setEmail('official@citizenconnect.gov.in'); setPassword('StaffPassword123!'); setError(''); }}
+              className="text-[11px] px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 cursor-pointer font-medium border border-amber-500/30 transition"
+            >
+              Official Demo
+            </button>
+          </div>
+        </div>
+      )}
+
       {mode === 'register' && (
         <p className={`text-[11px] text-center ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
           Public registration creates a Citizen account only.

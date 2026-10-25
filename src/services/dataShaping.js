@@ -132,7 +132,7 @@ export function shapeComplaintsForRole(complaints = [], role = DEMO_ROLES.CITIZE
           })),
           audioEvidence: c.audioEvidence ? { name: c.audioEvidence.name, duration: c.audioEvidence.duration } : null,
           auditHistory: (c.auditHistory || []).filter(
-            (a) => !a.action.startsWith('INTERNAL_REVIEWER_')
+            (a) => !(typeof a?.action === 'string' && a.action.startsWith('INTERNAL_REVIEWER_'))
           ),
         }));
     }

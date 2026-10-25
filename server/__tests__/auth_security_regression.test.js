@@ -706,6 +706,39 @@ describe('7. HTTP Authentication Routes Regression Tests', () => {
       expect(resVerify.status).toBe(200);
       expect(dataVerify.success).toBe(true);
       expect(dataVerify.data.user.emailVerified).toBe(true);
+
+      // Reset rate limit key to allow subsequent test requests from localhost
+      authLimiter.resetKey('127.0.0.1');
+      authLimiter.resetKey('::1');
+      authLimiter.resetKey('::ffff:127.0.0.1');
+
+      // 10. POST /api/auth/login missing credentials returns 400 with valid JSON
+      const resLoginNoCreds = await fetch(`${baseUrl}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const dataLoginNoCreds = await resLoginNoCreds.json();
+      expect(resLoginNoCreds.status).toBe(400);
+      expect(dataLoginNoCreds.success).toBe(false);
+      expect(dataLoginNoCreds.error.code).toBe('VALIDATION_ERROR');
+
+      // 11. POST /api/auth/login with database table error (P2021) returns 503 with safe JSON
+      const p2021Err = new Error('The table public.users does not exist in the current database.');
+      p2021Err.code = 'P2021';
+      p2021Err.name = 'PrismaClientKnownRequestError';
+      prisma.user.findUnique.mockRejectedValueOnce(p2021Err);
+
+      const resLoginDbDown = await fetch(`${baseUrl}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'tester@citizenconnect.gov.in', password: 'ValidPassword123!' }),
+      });
+      const dataLoginDbDown = await resLoginDbDown.json();
+      expect(resLoginDbDown.status).toBe(503);
+      expect(dataLoginDbDown.success).toBe(false);
+      expect(dataLoginDbDown.error.code).toBe('SERVICE_UNAVAILABLE');
+      expect(dataLoginDbDown.error.message).toMatch(/temporarily unavailable/i);
     } finally {
       if (server) {
         await new Promise((resolve) => server.close(resolve));
